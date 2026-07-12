@@ -1,0 +1,39 @@
+.backBtn {
+  margin-bottom: 16px;
+}
+
+.pageTitle {
+  color: var(--color-text);
+}
+
+.descriptions {
+  margin-bottom: 24px;
+}
+
+.labelStyle {
+  background: var(--color-bg-secondary);
+  font-weight: 600;
+  width: 140px;
+}
+
+.subSection {
+  margin-top: 32px;
+}
+
+.subTitle {
+  color: var(--color-text);
+}
+
+.subTable {
+  margin-top: 12px;
+}
+
+.spinWrap {
+  text-align: center;
+  padding: 80px;
+}
+
+.virulenceTag {
+  white-space: normal;
+  word-break: break-word;
+}

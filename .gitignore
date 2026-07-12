@@ -1,0 +1,29 @@
+# 敏感配置
+.env
+.agents/secret.md
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Go
+backend/gen/
+backend/tmp/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Python
+agent/__pycache__/
+agent/.venv/
+agent/venv/
+
+# Docker
+docker-compose.override.yml

@@ -1,0 +1,17 @@
+.pageTitle {
+  color: var(--color-text);
+}
+
+.searchBar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  background: var(--color-bg-secondary);
+  padding: 12px 16px;
+  border-radius: var(--radius);
+}
+
+.searchInput {
+  max-width: 400px;
+}

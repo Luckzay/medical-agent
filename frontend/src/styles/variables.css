@@ -1,0 +1,14 @@
+:root {
+  --color-primary: #1a1a1a;
+  --color-bg: #ffffff;
+  --color-bg-secondary: #fafafa;
+  --color-border: #f0f0f0;
+  --color-border-light: #e8e8e8;
+  --color-text: #1a1a1a;
+  --color-text-secondary: #8c8c8c;
+  --color-text-body: #333333;
+  --color-danger: #cf1322;
+  --font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Helvetica Neue", sans-serif;
+  --radius: 4px;
+  --max-width: 1200px;
+}

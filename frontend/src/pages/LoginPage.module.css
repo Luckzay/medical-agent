@@ -1,0 +1,25 @@
+.wrapper {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-secondary);
+}
+
+.box {
+  width: 360px;
+  background: var(--color-bg);
+  padding: 40px 32px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.title {
+  text-align: center;
+  color: var(--color-text);
+  margin-bottom: 32px;
+}
+
+.footer {
+  text-align: center;
+}
