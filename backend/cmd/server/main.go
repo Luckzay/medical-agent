@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"medicalagent/internal/cache"
 	"medicalagent/internal/config"
 	"medicalagent/internal/handler"
 	"medicalagent/internal/middleware"
@@ -11,6 +12,24 @@ import (
 	"go.uber.org/zap"
 )
 
+// @title           AI Medical Agent API
+// @version         1.0
+// @description     中医药知识库 API 服务 —— 方剂、单味药、对药、论文、分子信息、名家经验管理
+// @termsOfService    http://swagger.io/terms/
+
+// @contact.name   API Support
+// @contact.url    http://www.swagger.io/support
+// @contact.email  support@swagger.io
+
+// @license.name  Apache 2.0
+// @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host      localhost:8080
+// @BasePath  /api
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
 func main() {
 	logger, _ := zap.NewProduction()
 	defer logger.Sync()
@@ -25,8 +44,9 @@ func main() {
 	}
 	zap.L().Info("Database connected successfully")
 
+	cache.Init(cfg.Redis)
+
 	r := handler.SetupRouter()
-	r.Use(middleware.CORS())
 
 	addr := fmt.Sprintf(":%s", cfg.Server.Port)
 	zap.L().Info("Server starting", zap.String("addr", addr))

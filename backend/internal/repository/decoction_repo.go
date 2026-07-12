@@ -53,3 +53,15 @@ func (r *DecoctionRepo) GetMeta(decoctionID int) ([]model.DecoctionMeta, error) 
 	err := r.db.Where("decoction_id = ?", decoctionID).Order("review_number ASC, sorting_number ASC").Find(&list).Error
 	return list, err
 }
+
+func (r *DecoctionRepo) Create(d *model.DecoctionBasic) error {
+	return r.db.Create(d).Error
+}
+
+func (r *DecoctionRepo) Update(d *model.DecoctionBasic) error {
+	return r.db.Save(d).Error
+}
+
+func (r *DecoctionRepo) Delete(id int) error {
+	return r.db.Delete(&model.DecoctionBasic{}, id).Error
+}

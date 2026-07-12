@@ -41,3 +41,15 @@ func (r *CoupletRepo) GetToxicCompounds(coupletID int) ([]model.HerbCoupletToxic
 	err := r.db.Where("couplet_id = ?", coupletID).Find(&list).Error
 	return list, err
 }
+
+func (r *CoupletRepo) Create(c *model.HerbCoupletBasic) error {
+	return r.db.Create(c).Error
+}
+
+func (r *CoupletRepo) Update(c *model.HerbCoupletBasic) error {
+	return r.db.Save(c).Error
+}
+
+func (r *CoupletRepo) Delete(id int) error {
+	return r.db.Delete(&model.HerbCoupletBasic{}, id).Error
+}

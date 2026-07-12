@@ -18,6 +18,17 @@ type UserHandler struct {
 
 func NewUserHandler() *UserHandler { return &UserHandler{svc: service.NewUserService()} }
 
+// Login godoc
+// @Summary      用户登录
+// @Description  使用用户名和密码登录，返回 JWT token
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body      object{username=string,password=string}  true  "登录信息"
+// @Success      200  {object}  object{token=string,user=model.UserResponse}
+// @Failure      400  {object}  object{error=string}
+// @Failure      401  {object}  object{error=string}
+// @Router       /auth/login [post]
 func (h *UserHandler) Login(c *gin.Context) {
 	var req struct {
 		Username string `json:"username" binding:"required"`
@@ -28,8 +39,10 @@ func (h *UserHandler) Login(c *gin.Context) {
 		return
 	}
 	userResp, err := h.svc.Login(req.Username, req.Password)
+	zap.L().Info("login", zap.Any("user", req))
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "用户名或密码错误"})
+		zap.L().Error("login", zap.Error(err))
 		return
 	}
 	token, err := middleware.GenerateToken(userResp.ID, userResp.Username, userResp.Role)

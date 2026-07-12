@@ -14,7 +14,7 @@ var DB *gorm.DB
 func InitDB(cfg config.DBConfig) error {
 	var err error
 	DB, err = gorm.Open(mysql.Open(cfg.DSN()), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
+		Logger: logger.Default.LogMode(logger.Warn),
 	})
 	if err != nil {
 		return err
@@ -36,10 +36,9 @@ func InitDB(cfg config.DBConfig) error {
 		&model.PaperTag{},
 	}
 
-	for _, t := range tables {
-		if !DB.Migrator().HasTable(t) {
-			return err
-		}
+	if err := DB.AutoMigrate(tables...); err != nil {
+		return err
 	}
+
 	return nil
 }

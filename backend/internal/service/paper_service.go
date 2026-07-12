@@ -30,3 +30,15 @@ func (s *PaperService) GetDetail(id int) (*PaperDetail, error) {
 	tags, _ := s.repo.GetTags(id)
 	return &PaperDetail{Paper: p, Tags: tags}, nil
 }
+
+func (s *PaperService) Create(p *model.Paper) error {
+	return s.repo.Create(p)
+}
+
+func (s *PaperService) Update(p *model.Paper) error {
+	return s.repo.Update(p)
+}
+
+func (s *PaperService) Delete(id int) error {
+	return s.repo.Delete(id)
+}

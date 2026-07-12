@@ -1,0 +1,318 @@
+basePath: /api
+definitions:
+  model.Expertise:
+    properties:
+      abstract:
+        type: string
+      application_situation:
+        type: string
+      author:
+        type: string
+      clinical_case:
+        type: string
+      couplet:
+        type: string
+      dosage_course_usage:
+        type: string
+      herb_id:
+        type: integer
+      herb_or_decoction:
+        type: string
+      id:
+        type: integer
+      link_article:
+        type: string
+      related_article:
+        type: string
+      related_literature:
+        type: string
+    type: object
+  model.HerbBasic:
+    properties:
+      adr:
+        type: string
+      basis_for_usage_and_dosage:
+        type: string
+      clinical_suggestion:
+        type: string
+      clinical_suggestion_basis:
+        type: string
+      created_at:
+        type: string
+      crowd_taboo:
+        type: string
+      functionality:
+        type: string
+      functionality_basis:
+        type: string
+      herb_name:
+        type: string
+      herb_name_pinyin:
+        type: string
+      id:
+        type: integer
+      link_to_clinical_suggestion:
+        type: string
+      link_to_functionality_basis:
+        type: string
+      link_to_usage_and_dosage:
+        type: string
+      pathological_examination:
+        type: string
+      symptom_contraindications:
+        type: string
+      toxicity_mechanism:
+        type: string
+      typical_cases_of_adr:
+        type: string
+      updated_at:
+        type: string
+      usage_and_dosage:
+        type: string
+      virulence:
+        type: string
+    type: object
+  model.HerbToxicCompound:
+    properties:
+      cas:
+        type: string
+      compound_name:
+        type: string
+      compound_type:
+        type: string
+      herb_id:
+        type: integer
+      id:
+        type: integer
+      molecular_formula:
+        type: string
+      record_number:
+        type: integer
+    type: object
+  model.UserResponse:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      full_name:
+        type: string
+      gender:
+        type: string
+      id:
+        type: integer
+      phone:
+        type: string
+      role:
+        type: string
+      updated_at:
+        type: string
+      username:
+        type: string
+    type: object
+  service.HerbDetail:
+    properties:
+      adr:
+        type: string
+      basis_for_usage_and_dosage:
+        type: string
+      clinical_suggestion:
+        type: string
+      clinical_suggestion_basis:
+        type: string
+      created_at:
+        type: string
+      crowd_taboo:
+        type: string
+      expertises:
+        items:
+          $ref: '#/definitions/model.Expertise'
+        type: array
+      functionality:
+        type: string
+      functionality_basis:
+        type: string
+      herb_name:
+        type: string
+      herb_name_pinyin:
+        type: string
+      id:
+        type: integer
+      link_to_clinical_suggestion:
+        type: string
+      link_to_functionality_basis:
+        type: string
+      link_to_usage_and_dosage:
+        type: string
+      pathological_examination:
+        type: string
+      symptom_contraindications:
+        type: string
+      toxic_compounds:
+        items:
+          $ref: '#/definitions/model.HerbToxicCompound'
+        type: array
+      toxicity_mechanism:
+        type: string
+      typical_cases_of_adr:
+        type: string
+      updated_at:
+        type: string
+      usage_and_dosage:
+        type: string
+      virulence:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: 中医药知识库 API 服务 —— 方剂、单味药、对药、论文、分子信息、名家经验管理
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: AI Medical Agent API
+  version: "1.0"
+paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: 使用用户名和密码登录，返回 JWT token
+      parameters:
+      - description: 登录信息
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            password:
+              type: string
+            username:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              token:
+                type: string
+              user:
+                $ref: '#/definitions/model.UserResponse'
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: 用户登录
+      tags:
+      - auth
+  /herbs:
+    get:
+      consumes:
+      - application/json
+      description: 分页查询单味药，支持关键词搜索
+      parameters:
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      - description: 搜索关键词
+        in: query
+        name: keyword
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              data:
+                items:
+                  $ref: '#/definitions/model.HerbBasic'
+                type: array
+              page:
+                type: integer
+              page_size:
+                type: integer
+              total:
+                format: int64
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: 获取单味药列表
+      tags:
+      - herbs
+  /herbs/{id}:
+    get:
+      consumes:
+      - application/json
+      description: 根据 ID 获取单味药详细信息，包括毒性成分和名家经验
+      parameters:
+      - description: 药物 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              data:
+                $ref: '#/definitions/service.HerbDetail'
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: 获取单味药详情
+      tags:
+      - herbs
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

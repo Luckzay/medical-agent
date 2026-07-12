@@ -30,3 +30,15 @@ func (s *CoupletService) GetDetail(id int) (*CoupletDetail, error) {
 	compounds, _ := s.repo.GetToxicCompounds(id)
 	return &CoupletDetail{HerbCoupletBasic: c, ToxicCompounds: compounds}, nil
 }
+
+func (s *CoupletService) Create(c *model.HerbCoupletBasic) error {
+	return s.repo.Create(c)
+}
+
+func (s *CoupletService) Update(c *model.HerbCoupletBasic) error {
+	return s.repo.Update(c)
+}
+
+func (s *CoupletService) Delete(id int) error {
+	return s.repo.Delete(id)
+}

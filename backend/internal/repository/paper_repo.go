@@ -41,3 +41,20 @@ func (r *PaperRepo) GetTags(paperID int) ([]model.PaperTag, error) {
 	err := r.db.Where("paper_id = ?", paperID).Find(&tags).Error
 	return tags, err
 }
+
+func (r *PaperRepo) Create(p *model.Paper) error {
+	return r.db.Create(p).Error
+}
+
+func (r *PaperRepo) Update(p *model.Paper) error {
+	return r.db.Save(p).Error
+}
+
+func (r *PaperRepo) Delete(id int) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("paper_id = ?", id).Delete(&model.PaperTag{}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&model.Paper{}, id).Error
+	})
+}

@@ -35,3 +35,15 @@ func (r *CompoundRepo) GetByRecordNumber(rn int64) (*model.MolecularInfo, error)
 	}
 	return &m, nil
 }
+
+func (r *CompoundRepo) Create(m *model.MolecularInfo) error {
+	return r.db.Create(m).Error
+}
+
+func (r *CompoundRepo) Update(m *model.MolecularInfo) error {
+	return r.db.Save(m).Error
+}
+
+func (r *CompoundRepo) Delete(rn int64) error {
+	return r.db.Delete(&model.MolecularInfo{}, rn).Error
+}

@@ -41,3 +41,15 @@ func (r *HerbRepo) GetToxicCompounds(herbID int) ([]model.HerbToxicCompound, err
 	err := r.db.Where("herb_id = ?", herbID).Find(&compounds).Error
 	return compounds, err
 }
+
+func (r *HerbRepo) Create(h *model.HerbBasic) error {
+	return r.db.Create(h).Error
+}
+
+func (r *HerbRepo) Update(h *model.HerbBasic) error {
+	return r.db.Save(h).Error
+}
+
+func (r *HerbRepo) Delete(id int) error {
+	return r.db.Delete(&model.HerbBasic{}, id).Error
+}

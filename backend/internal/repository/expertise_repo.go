@@ -41,3 +41,15 @@ func (r *ExpertiseRepo) ListByHerbID(herbID int) ([]model.Expertise, error) {
 	err := r.db.Where("herb_id = ?", herbID).Find(&list).Error
 	return list, err
 }
+
+func (r *ExpertiseRepo) Create(e *model.Expertise) error {
+	return r.db.Create(e).Error
+}
+
+func (r *ExpertiseRepo) Update(e *model.Expertise) error {
+	return r.db.Save(e).Error
+}
+
+func (r *ExpertiseRepo) Delete(id int) error {
+	return r.db.Delete(&model.Expertise{}, id).Error
+}

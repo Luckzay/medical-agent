@@ -34,3 +34,15 @@ func (s *DecoctionService) GetDetail(id int) (*DecoctionDetail, error) {
 	meta, _ := s.repo.GetMeta(id)
 	return &DecoctionDetail{DecoctionBasic: d, Compounds: compounds, ToxicCompounds: toxic, Meta: meta}, nil
 }
+
+func (s *DecoctionService) Create(d *model.DecoctionBasic) error {
+	return s.repo.Create(d)
+}
+
+func (s *DecoctionService) Update(d *model.DecoctionBasic) error {
+	return s.repo.Update(d)
+}
+
+func (s *DecoctionService) Delete(id int) error {
+	return s.repo.Delete(id)
+}
