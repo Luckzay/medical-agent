@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"medicalagent/internal/cache"
 	"medicalagent/internal/config"
@@ -36,8 +37,12 @@ func main() {
 	zap.ReplaceGlobals(logger)
 
 	cfg := config.Load()
+	if strings.TrimSpace(cfg.JWT.Secret) == "" {
+		zap.L().Fatal("JWT_SECRET is required")
+	}
 
 	middleware.JWTSecret = cfg.JWT.Secret
+	middleware.CORSAllowedOrigin = cfg.Server.CORSAllowedOrigin
 
 	if err := repository.InitDB(cfg.DB); err != nil {
 		zap.L().Fatal("Failed to connect to database", zap.Error(err))

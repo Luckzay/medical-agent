@@ -44,7 +44,7 @@ func (r *UserRepo) Create(user *model.User) error {
 }
 
 func (r *UserRepo) Update(user *model.User) error {
-	return r.db.Omit("created_at").Save(user).Error
+	return r.db.Omit("created_at", "updated_at").Save(user).Error
 }
 
 func (r *UserRepo) Delete(id int) error {

@@ -87,7 +87,7 @@ func SetupRouter() *gin.Engine {
 	users := api.Group("/users")
 	users.Use(middleware.AuthRequired())
 	{
-		users.GET("", NewUserHandler().List)
+		users.GET("", middleware.AdminRequired(), NewUserHandler().List)
 		users.POST("", middleware.AdminRequired(), NewUserHandler().Create)
 		users.PUT("/:id", middleware.AdminRequired(), NewUserHandler().Update)
 		users.DELETE("/:id", middleware.AdminRequired(), NewUserHandler().Delete)

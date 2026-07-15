@@ -47,7 +47,7 @@ func (r *CoupletRepo) Create(c *model.HerbCoupletBasic) error {
 }
 
 func (r *CoupletRepo) Update(c *model.HerbCoupletBasic) error {
-	return r.db.Save(c).Error
+	return r.db.Omit("created_at").Save(c).Error
 }
 
 func (r *CoupletRepo) Delete(id int) error {

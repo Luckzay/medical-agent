@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -10,6 +11,7 @@ import (
 )
 
 var JWTSecret string
+var CORSAllowedOrigin string
 
 type Claims struct {
 	UserID   int    `json:"user_id"`
@@ -42,7 +44,12 @@ func AuthRequired() gin.HandlerFunc {
 		tokenStr := strings.TrimPrefix(auth, "Bearer ")
 		claims := &Claims{}
 		token, err := jwt.ParseWithClaims(tokenStr, claims,
-			func(t *jwt.Token) (any, error) { return []byte(JWTSecret), nil })
+			func(t *jwt.Token) (any, error) {
+				if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+					return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+				}
+				return []byte(JWTSecret), nil
+			})
 		if err != nil || !token.Valid {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "认证令牌无效"})
 			return
@@ -67,7 +74,7 @@ func AdminRequired() gin.HandlerFunc {
 
 func CORS() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Origin", CORSAllowedOrigin)
 		c.Header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Content-Type,Authorization")
 		if c.Request.Method == "OPTIONS" {

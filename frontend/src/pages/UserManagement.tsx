@@ -100,7 +100,7 @@ export default function UserManagement() {
         pagination={{ current: page, total, pageSize, onChange: setPage, showTotal: (t) => `共 ${t} 条` }} />
 
       <Modal title={editingUser ? '编辑用户' : '新建用户'} open={modalOpen}
-        onOk={handleSubmit} onCancel={() => setModalOpen(false)} destroyOnClose>
+        onOk={handleSubmit} onCancel={() => setModalOpen(false)} destroyOnHidden>
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
           <Form.Item name="username" label="用户名" rules={[{ required: true }]}>
             <Input disabled={!!editingUser} />

@@ -13,17 +13,19 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+  const [token, setToken] = useState<string | null>(sessionStorage.getItem('token'));
   const [user, setUser] = useState<User | null>(() => {
-    const u = localStorage.getItem('user');
+    const u = sessionStorage.getItem('user');
     return u ? JSON.parse(u) : null;
   });
 
   const login = useCallback(async (username: string, password: string) => {
     const res = await apiLogin({ username, password });
     const { token: t, user: u } = res.data;
-    localStorage.setItem('token', t);
-    localStorage.setItem('user', JSON.stringify(u));
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    sessionStorage.setItem('token', t);
+    sessionStorage.setItem('user', JSON.stringify(u));
     setToken(t);
     setUser(u);
   }, []);
@@ -31,6 +33,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('user');
     setToken(null);
     setUser(null);
   }, []);

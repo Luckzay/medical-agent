@@ -103,3 +103,21 @@ func DelPattern(ctx context.Context, pattern string) {
 		}
 	}
 }
+
+func IncrementWindow(ctx context.Context, key string, window time.Duration) (int64, bool) {
+	if !IsEnabled() {
+		return 0, false
+	}
+
+	count, err := Client.Incr(ctx, key).Result()
+	if err != nil {
+		zap.L().Warn("cache incr failed", zap.String("key", key), zap.Error(err))
+		return 0, false
+	}
+	if count == 1 {
+		if err := Client.Expire(ctx, key, window).Err(); err != nil {
+			zap.L().Warn("cache expire failed", zap.String("key", key), zap.Error(err))
+		}
+	}
+	return count, true
+}

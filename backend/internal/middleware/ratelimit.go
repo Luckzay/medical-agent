@@ -1,9 +1,12 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"sync"
 	"time"
+
+	"medicalagent/internal/cache"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/time/rate"
@@ -15,11 +18,12 @@ type ipLimiter struct {
 }
 
 var (
-	limiterMap = make(map[string]*ipLimiter)
-	mu         sync.Mutex
+	limiterMap      = make(map[string]*ipLimiter)
+	mu              sync.Mutex
 	cleanupInterval = time.Minute
-	rateLimit   = 100
-	rateBurst   = 200
+	rateLimit       = 100
+	rateBurst       = 200
+	redisRateWindow = time.Second
 )
 
 func init() {
@@ -57,6 +61,18 @@ func getLimiter(ip string) *rate.Limiter {
 func RateLimit() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ip := c.ClientIP()
+
+		if count, ok := cache.IncrementWindow(context.Background(), "ratelimit:ip:"+ip, redisRateWindow); ok {
+			if count > int64(rateBurst) {
+				c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
+					"error": "请求过于频繁，请稍后再试",
+				})
+				return
+			}
+			c.Next()
+			return
+		}
+
 		limiter := getLimiter(ip)
 
 		if !limiter.Allow() {

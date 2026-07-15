@@ -47,7 +47,7 @@ func (r *PaperRepo) Create(p *model.Paper) error {
 }
 
 func (r *PaperRepo) Update(p *model.Paper) error {
-	return r.db.Save(p).Error
+	return r.db.Omit("created_at").Save(p).Error
 }
 
 func (r *PaperRepo) Delete(id int) error {

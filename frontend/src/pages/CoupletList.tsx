@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Table, Input, Button, Typography } from 'antd';
-import { SearchOutlined, ReloadOutlined } from '@ant-design/icons';
+import { Table, Input, Button, Typography, Popconfirm, message, Modal, Form } from 'antd';
+import { SearchOutlined, ReloadOutlined, PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import type { HerbCoupletBasic } from '../types';
-import { listCouplets } from '../services/api';
+import { listCouplets, createCouplet, updateCouplet, deleteCouplet } from '../services/api';
+import { useAuth } from '../hooks/useAuth';
 import styles from './ListPage.module.css';
 
 const { Title } = Typography;
 
 export default function CoupletList() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const [searchParams, setSearchParams] = useSearchParams();
   const [data, setData] = useState<HerbCoupletBasic[]>([]);
   const [total, setTotal] = useState(0);
@@ -17,6 +20,9 @@ export default function CoupletList() {
   const [keyword, setKeyword] = useState(searchParams.get('keyword') || '');
   const [page, setPage] = useState(Number(searchParams.get('page')) || 1);
   const pageSize = 20;
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<HerbCoupletBasic | null>(null);
+  const [form] = Form.useForm();
 
   const fetchData = async (p: number, kw: string) => {
     setLoading(true);
@@ -31,6 +37,45 @@ export default function CoupletList() {
   const onSearch = () => { setPage(1); setSearchParams({ keyword, page: '1' }); };
   const onReset = () => { setKeyword(''); setPage(1); setSearchParams({}); };
 
+  const handleAdd = () => {
+    setEditingRecord(null);
+    form.resetFields();
+    setModalOpen(true);
+  };
+
+  const handleEdit = (record: HerbCoupletBasic) => {
+    setEditingRecord(record);
+    form.setFieldsValue(record);
+    setModalOpen(true);
+  };
+
+  const handleDelete = async (id: number) => {
+    try {
+      await deleteCouplet(id);
+      message.success('删除成功');
+      fetchData(page, keyword);
+    } catch (e: any) {
+      message.error(e.response?.data?.error || '删除失败');
+    }
+  };
+
+  const handleSubmit = async () => {
+    try {
+      const values = await form.validateFields();
+      if (editingRecord) {
+        await updateCouplet(editingRecord.id, values);
+        message.success('更新成功');
+      } else {
+        await createCouplet(values);
+        message.success('创建成功');
+      }
+      setModalOpen(false);
+      fetchData(page, keyword);
+    } catch (e: any) {
+      message.error(e.response?.data?.error || '操作失败');
+    }
+  };
+
   const columns = [
     { title: '编号', dataIndex: 'id', key: 'id', width: 80 },
     { title: '药对名', dataIndex: 'herb_couplet_name', key: 'name',
@@ -38,6 +83,17 @@ export default function CoupletList() {
     { title: '拼音', dataIndex: 'herb_couplet_name_pinyin', key: 'pinyin', width: 200 },
     { title: '毒性', dataIndex: 'virulence', key: 'virulence', width: 100,
       render: (v: string) => v ? <span style={{ color: '#cf1322' }}>{v}</span> : '-' },
+      ...(isAdmin ? [{
+        title: '操作', key: 'action', width: 160, fixed: 'right' as const,
+        render: (_: any, record: HerbCoupletBasic) => (
+          <>
+            <Button type="link" size="small" icon={<EditOutlined />} onClick={(e) => { e.stopPropagation(); handleEdit(record); }}>编辑</Button>
+            <Popconfirm title="确定删除？" onConfirm={(e) => { e?.stopPropagation(); handleDelete(record.id); }} onCancel={(e) => e?.stopPropagation()}>
+              <Button type="link" size="small" danger icon={<DeleteOutlined />} onClick={(e) => e.stopPropagation()}>删除</Button>
+            </Popconfirm>
+          </>
+        ),
+      }] : []),
   ];
 
   return (
@@ -49,10 +105,42 @@ export default function CoupletList() {
           style={{ maxWidth: 320 }} prefix={<SearchOutlined />} allowClear />
         <Button type="primary" onClick={onSearch}>搜索</Button>
         <Button icon={<ReloadOutlined />} onClick={onReset}>重置</Button>
+          {isAdmin && (
+            <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd} style={{ marginLeft: 'auto' }}>
+              新增
+            </Button>
+          )}
       </div>
       <Table columns={columns} dataSource={data} rowKey="id" loading={loading}
         pagination={{ current: page, total, pageSize, onChange: (p) => { setPage(p); setSearchParams({ keyword, page: String(p) }); }, showTotal: (t) => `共 ${t} 条` }}
         onRow={(r) => ({ onClick: () => navigate(`/couplets/${r.id}`), style: { cursor: 'pointer' } })} />
+
+      <Modal title={editingRecord ? '编辑药对' : '新增药对'} open={modalOpen}
+        onOk={handleSubmit} onCancel={() => setModalOpen(false)} width={700} destroyOnHidden>
+        <Form form={form} layout="vertical">
+          <Form.Item name="herb_couplet_name" label="药对名" rules={[{ required: true, message: '请输入药对名' }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="herb_couplet_name_pinyin" label="拼音">
+            <Input />
+          </Form.Item>
+          <Form.Item name="virulence" label="毒性">
+            <Input />
+          </Form.Item>
+          <Form.Item name="functionality" label="功能主治">
+            <Input.TextArea rows={3} />
+          </Form.Item>
+          <Form.Item name="related_toxic_herbs" label="相关毒性药物">
+            <Input.TextArea rows={2} />
+          </Form.Item>
+          <Form.Item name="toxicity_mechanism" label="毒性机制">
+            <Input.TextArea rows={2} />
+          </Form.Item>
+          <Form.Item name="clinical_suggestion" label="临床建议">
+            <Input.TextArea rows={2} />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 }

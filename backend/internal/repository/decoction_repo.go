@@ -59,7 +59,7 @@ func (r *DecoctionRepo) Create(d *model.DecoctionBasic) error {
 }
 
 func (r *DecoctionRepo) Update(d *model.DecoctionBasic) error {
-	return r.db.Save(d).Error
+	return r.db.Omit("created_at").Save(d).Error
 }
 
 func (r *DecoctionRepo) Delete(id int) error {

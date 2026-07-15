@@ -6,10 +6,10 @@ import (
 )
 
 type Config struct {
-	DB      DBConfig
-	Redis   RedisConfig
-	JWT     JWTConfig
-	Server  ServerConfig
+	DB     DBConfig
+	Redis  RedisConfig
+	JWT    JWTConfig
+	Server ServerConfig
 }
 
 type DBConfig struct {
@@ -30,7 +30,8 @@ type JWTConfig struct {
 }
 
 type ServerConfig struct {
-	Port string
+	Port              string
+	CORSAllowedOrigin string
 }
 
 func (c DBConfig) DSN() string {
@@ -61,7 +62,8 @@ func Load() *Config {
 			Secret: viper.GetString("JWT_SECRET"),
 		},
 		Server: ServerConfig{
-			Port: viper.GetString("SERVER_PORT"),
+			Port:              viper.GetString("SERVER_PORT"),
+			CORSAllowedOrigin: viper.GetString("CORS_ALLOWED_ORIGIN"),
 		},
 	}
 
@@ -73,6 +75,9 @@ func Load() *Config {
 	}
 	if cfg.DB.Host == "" {
 		cfg.DB.Host = "127.0.0.1"
+	}
+	if cfg.Server.CORSAllowedOrigin == "" {
+		cfg.Server.CORSAllowedOrigin = "http://localhost:3000"
 	}
 
 	return cfg

@@ -47,7 +47,7 @@ func (r *HerbRepo) Create(h *model.HerbBasic) error {
 }
 
 func (r *HerbRepo) Update(h *model.HerbBasic) error {
-	return r.db.Save(h).Error
+	return r.db.Omit("created_at").Save(h).Error
 }
 
 func (r *HerbRepo) Delete(id int) error {

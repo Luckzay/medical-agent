@@ -39,7 +39,7 @@ func (h *UserHandler) Login(c *gin.Context) {
 		return
 	}
 	userResp, err := h.svc.Login(req.Username, req.Password)
-	zap.L().Info("login", zap.Any("user", req))
+	zap.L().Info("login", zap.String("username", req.Username))
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "用户名或密码错误"})
 		zap.L().Error("login", zap.Error(err))

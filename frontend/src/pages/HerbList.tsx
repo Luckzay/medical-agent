@@ -122,7 +122,7 @@ export default function HerbList() {
         onOk={handleSubmit}
         onCancel={() => setModalOpen(false)}
         width={600}
-        destroyOnClose
+          destroyOnHidden
       >
         <Form form={form} layout="vertical">
           <Form.Item name="herb_name" label="名称" rules={[{ required: true, message: '请输入名称' }]}>

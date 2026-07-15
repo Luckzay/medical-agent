@@ -41,7 +41,7 @@ func (r *CompoundRepo) Create(m *model.MolecularInfo) error {
 }
 
 func (r *CompoundRepo) Update(m *model.MolecularInfo) error {
-	return r.db.Save(m).Error
+	return r.db.Omit("created_at").Save(m).Error
 }
 
 func (r *CompoundRepo) Delete(rn int64) error {

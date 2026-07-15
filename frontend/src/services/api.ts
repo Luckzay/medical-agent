@@ -12,8 +12,21 @@ import type {
 
 const api = axios.create({ baseURL: '/api' });
 
+function stripSystemFields<T extends object>(data: T): Partial<T> {
+  const cleaned = { ...data } as Record<string, unknown>;
+  delete cleaned.created_at;
+  delete cleaned.updated_at;
+  return cleaned as Partial<T>;
+}
+
+function stripBlankPassword<T extends object>(data: T): Partial<T> {
+  const cleaned = stripSystemFields(data) as Record<string, unknown>;
+  if (cleaned.password === '') delete cleaned.password;
+  return cleaned as Partial<T>;
+}
+
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
@@ -24,6 +37,8 @@ api.interceptors.response.use(
     if (err.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('user');
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';
       }
@@ -39,8 +54,8 @@ export const register = (data: RegisterRequest) => api.post<{ data: User }>('/au
 // Users
 export const listUsers = (page = 1, pageSize = 20) =>
   api.get<PaginatedResponse<User>>('/users', { params: { page, page_size: pageSize } });
-export const createUser = (data: Partial<User> & { password: string }) => api.post<{ data: User }>('/users', data);
-export const updateUser = (id: number, data: Partial<User>) => api.put(`/users/${id}`, data);
+export const createUser = (data: Partial<User> & { password: string }) => api.post<{ data: User }>('/users', stripSystemFields(data));
+export const updateUser = (id: number, data: Partial<User>) => api.put(`/users/${id}`, stripBlankPassword(data));
 export const deleteUser = (id: number) => api.delete(`/users/${id}`);
 
 // Herbs
@@ -48,8 +63,8 @@ export const listHerbs = (page = 1, pageSize = 20, keyword = '') =>
   api.get<PaginatedResponse<HerbBasic>>('/herbs', { params: { page, page_size: pageSize, keyword } });
 export const getHerbDetail = (id: number) =>
   api.get<{ data: HerbDetail }>(`/herbs/${id}`);
-export const createHerb = (data: Partial<HerbBasic>) => api.post<{ data: HerbBasic }>('/herbs', data);
-export const updateHerb = (id: number, data: Partial<HerbBasic>) => api.put(`/herbs/${id}`, data);
+export const createHerb = (data: Partial<HerbBasic>) => api.post<{ data: HerbBasic }>('/herbs', stripSystemFields(data));
+export const updateHerb = (id: number, data: Partial<HerbBasic>) => api.put(`/herbs/${id}`, stripSystemFields(data));
 export const deleteHerb = (id: number) => api.delete(`/herbs/${id}`);
 
 // Decoctions
@@ -57,8 +72,8 @@ export const listDecoctions = (page = 1, pageSize = 20, keyword = '') =>
   api.get<PaginatedResponse<DecoctionBasic>>('/decoctions', { params: { page, page_size: pageSize, keyword } });
 export const getDecoctionDetail = (id: number) =>
   api.get<{ data: DecoctionDetail }>(`/decoctions/${id}`);
-export const createDecoction = (data: Partial<DecoctionBasic>) => api.post<{ data: DecoctionBasic }>('/decoctions', data);
-export const updateDecoction = (id: number, data: Partial<DecoctionBasic>) => api.put(`/decoctions/${id}`, data);
+export const createDecoction = (data: Partial<DecoctionBasic>) => api.post<{ data: DecoctionBasic }>('/decoctions', stripSystemFields(data));
+export const updateDecoction = (id: number, data: Partial<DecoctionBasic>) => api.put(`/decoctions/${id}`, stripSystemFields(data));
 export const deleteDecoction = (id: number) => api.delete(`/decoctions/${id}`);
 
 // Couplets
@@ -66,8 +81,8 @@ export const listCouplets = (page = 1, pageSize = 20, keyword = '') =>
   api.get<PaginatedResponse<HerbCoupletBasic>>('/couplets', { params: { page, page_size: pageSize, keyword } });
 export const getCoupletDetail = (id: number) =>
   api.get<{ data: CoupletDetail }>(`/couplets/${id}`);
-export const createCouplet = (data: Partial<HerbCoupletBasic>) => api.post<{ data: HerbCoupletBasic }>('/couplets', data);
-export const updateCouplet = (id: number, data: Partial<HerbCoupletBasic>) => api.put(`/couplets/${id}`, data);
+export const createCouplet = (data: Partial<HerbCoupletBasic>) => api.post<{ data: HerbCoupletBasic }>('/couplets', stripSystemFields(data));
+export const updateCouplet = (id: number, data: Partial<HerbCoupletBasic>) => api.put(`/couplets/${id}`, stripSystemFields(data));
 export const deleteCouplet = (id: number) => api.delete(`/couplets/${id}`);
 
 // Compounds
@@ -75,8 +90,8 @@ export const listCompounds = (page = 1, pageSize = 20, keyword = '') =>
   api.get<PaginatedResponse<MolecularInfo>>('/compounds', { params: { page, page_size: pageSize, keyword } });
 export const getCompoundDetail = (id: number) =>
   api.get<{ data: MolecularInfo }>(`/compounds/${id}`);
-export const createCompound = (data: Partial<MolecularInfo>) => api.post<{ data: MolecularInfo }>('/compounds', data);
-export const updateCompound = (id: number, data: Partial<MolecularInfo>) => api.put(`/compounds/${id}`, data);
+export const createCompound = (data: Partial<MolecularInfo>) => api.post<{ data: MolecularInfo }>('/compounds', stripSystemFields(data));
+export const updateCompound = (id: number, data: Partial<MolecularInfo>) => api.put(`/compounds/${id}`, stripSystemFields(data));
 export const deleteCompound = (id: number) => api.delete(`/compounds/${id}`);
 
 // Expertises
@@ -84,8 +99,8 @@ export const listExpertises = (page = 1, pageSize = 20, keyword = '') =>
   api.get<PaginatedResponse<Expertise>>('/expertises', { params: { page, page_size: pageSize, keyword } });
 export const getExpertiseDetail = (id: number) =>
   api.get<{ data: Expertise }>(`/expertises/${id}`);
-export const createExpertise = (data: Partial<Expertise>) => api.post<{ data: Expertise }>('/expertises', data);
-export const updateExpertise = (id: number, data: Partial<Expertise>) => api.put(`/expertises/${id}`, data);
+export const createExpertise = (data: Partial<Expertise>) => api.post<{ data: Expertise }>('/expertises', stripSystemFields(data));
+export const updateExpertise = (id: number, data: Partial<Expertise>) => api.put(`/expertises/${id}`, stripSystemFields(data));
 export const deleteExpertise = (id: number) => api.delete(`/expertises/${id}`);
 
 // Papers
@@ -93,8 +108,8 @@ export const listPapers = (page = 1, pageSize = 20, keyword = '') =>
   api.get<PaginatedResponse<Paper>>('/papers', { params: { page, page_size: pageSize, keyword } });
 export const getPaperDetail = (id: number) =>
   api.get<{ data: PaperDetail }>(`/papers/${id}`);
-export const createPaper = (data: Partial<Paper>) => api.post<{ data: Paper }>('/papers', data);
-export const updatePaper = (id: number, data: Partial<Paper>) => api.put(`/papers/${id}`, data);
+export const createPaper = (data: Partial<Paper>) => api.post<{ data: Paper }>('/papers', stripSystemFields(data));
+export const updatePaper = (id: number, data: Partial<Paper>) => api.put(`/papers/${id}`, stripSystemFields(data));
 export const deletePaper = (id: number) => api.delete(`/papers/${id}`);
 
 export default api;

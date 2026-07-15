@@ -18,9 +18,10 @@ import PaperDetail from './pages/PaperDetail';
 import UserManagement from './pages/UserManagement';
 import { useAuth } from './hooks/useAuth';
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuth();
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, user } = useAuth();
   if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (user?.role !== 'admin') return <Navigate to="/" replace />;
   return <>{children}</>;
 }
 
@@ -43,7 +44,7 @@ export default function App() {
         <Route path="/expertises/:id" element={<ExpertiseDetail />} />
         <Route path="/papers" element={<PaperList />} />
         <Route path="/papers/:id" element={<PaperDetail />} />
-        <Route path="/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
+        <Route path="/users" element={<AdminRoute><UserManagement /></AdminRoute>} />
       </Route>
     </Routes>
   );
