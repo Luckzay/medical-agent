@@ -11,6 +11,8 @@ import {
   ReadOutlined,
   LogoutOutlined,
   MenuOutlined,
+  RobotOutlined,
+  SettingOutlined,
 } from '@ant-design/icons';
 import { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
@@ -24,6 +26,7 @@ const navItems = [
   { key: '/compounds', icon: <FileTextOutlined />, label: '化合物' },
   { key: '/expertises', icon: <TeamOutlined />, label: '专家经验' },
   { key: '/papers', icon: <ReadOutlined />, label: '文献' },
+  { key: '/agent', icon: <RobotOutlined />, label: '智能研究' },
 ];
 
 export default function Layout() {
@@ -38,6 +41,7 @@ export default function Layout() {
     ? [
         ...(user?.role === 'admin'
           ? [{ key: 'users', icon: <UserOutlined />, label: '用户管理', onClick: () => navigate('/users') },
+             { key: 'llm-config', icon: <SettingOutlined />, label: 'LLM 配置', onClick: () => navigate('/config/llm') },
              { type: 'divider' as const }]
           : []),
         { key: 'logout', icon: <LogoutOutlined />, label: '退出登录', onClick: logout },

@@ -16,7 +16,15 @@ import ExpertiseDetail from './pages/ExpertiseDetail';
 import PaperList from './pages/PaperList';
 import PaperDetail from './pages/PaperDetail';
 import UserManagement from './pages/UserManagement';
+import AgentWorkspace from './pages/AgentWorkspace';
+import LLMConfigPage from './pages/LLMConfigPage';
 import { useAuth } from './hooks/useAuth';
+
+function AuthenticatedRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated } = useAuth();
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+}
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, user } = useAuth();
@@ -44,7 +52,9 @@ export default function App() {
         <Route path="/expertises/:id" element={<ExpertiseDetail />} />
         <Route path="/papers" element={<PaperList />} />
         <Route path="/papers/:id" element={<PaperDetail />} />
+        <Route path="/agent" element={<AuthenticatedRoute><AgentWorkspace /></AuthenticatedRoute>} />
         <Route path="/users" element={<AdminRoute><UserManagement /></AdminRoute>} />
+        <Route path="/config/llm" element={<AdminRoute><LLMConfigPage /></AdminRoute>} />
       </Route>
     </Routes>
   );

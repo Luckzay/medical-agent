@@ -9,6 +9,7 @@ import {
   ReadOutlined,
   SafetyCertificateOutlined,
   SearchOutlined,
+  RobotOutlined,
 } from '@ant-design/icons';
 import styles from './HomePage.module.css';
 
@@ -21,6 +22,7 @@ const modules = [
   { key: '/compounds', icon: <FileTextOutlined />, title: '毒性化合物', desc: '查询化合物化学信息、FDA药理学综述、LiverTox摘要' },
   { key: '/expertises', icon: <TeamOutlined />, title: '专家经验', desc: '汇集名家用药经验、临床应用案例与相关文献' },
   { key: '/papers', icon: <ReadOutlined />, title: '文献证据', desc: '检索相关研究论文，获取药效与毒性循证依据' },
+  { key: '/agent', icon: <RobotOutlined />, title: '智能研究', desc: '输入中药与研究目标，自动分析候选化合物、循证依据与实验方案' },
 ];
 
 export default function HomePage() {
@@ -37,10 +39,10 @@ export default function HomePage() {
           毒性方剂及专家经验等多维度数据，助力中医药研究、临床合理用药与科研决策。
         </Paragraph>
         <Space>
-          <Button type="primary" icon={<SearchOutlined />} onClick={() => navigate('/herbs')}>
-            开始检索
+          <Button type="primary" icon={<RobotOutlined />} onClick={() => navigate('/agent')}>
+            开始智能研究
           </Button>
-          <Button onClick={() => navigate('/decoctions')}>浏览方剂</Button>
+          <Button icon={<SearchOutlined />} onClick={() => navigate('/herbs')}>检索药物</Button>
         </Space>
       </div>
 

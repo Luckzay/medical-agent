@@ -8,6 +8,8 @@ import type {
   MolecularInfo,
   Expertise,
   Paper, PaperDetail,
+  AgentRun, CreateAgentRunRequest,
+  LLMConfig, UpdateLLMConfigRequest,
 } from '../types';
 
 const api = axios.create({ baseURL: '/api' });
@@ -33,8 +35,8 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (r) => r,
-  (err) => {
-    if (err.response?.status === 401) {
+  (error: unknown) => {
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       sessionStorage.removeItem('token');
@@ -43,9 +45,19 @@ api.interceptors.response.use(
         window.location.href = '/login';
       }
     }
-    return Promise.reject(err);
+    return Promise.reject(error);
   },
 );
+
+interface APIErrorBody {
+  error?: string;
+  message?: string;
+}
+
+export function getApiErrorMessage(error: unknown, fallback: string): string {
+  if (!axios.isAxiosError<APIErrorBody>(error)) return fallback;
+  return error.response?.data?.error || error.response?.data?.message || error.message || fallback;
+}
 
 // Auth
 export const login = (data: LoginRequest) => api.post<LoginResponse>('/auth/login', data);
@@ -113,3 +125,17 @@ export const updatePaper = (id: number, data: Partial<Paper>) => api.put(`/paper
 export const deletePaper = (id: number) => api.delete(`/papers/${id}`);
 
 export default api;
+
+
+// Agent runs
+export const createAgentRun = (data: CreateAgentRunRequest) =>
+  api.post<{ data: AgentRun }>('/agent/runs', data);
+export const getAgentRun = (runId: string) =>
+  api.get<{ data: AgentRun }>(`/agent/runs/${encodeURIComponent(runId)}`);
+export const resumeAgentRun = (runId: string) =>
+  api.post<{ data: AgentRun }>(`/agent/runs/${encodeURIComponent(runId)}/resume`);
+
+// LLM configuration (admin only)
+export const getLLMConfig = () => api.get<LLMConfig>('/admin/llm-config');
+export const updateLLMConfig = (data: UpdateLLMConfigRequest) =>
+  api.put<{ message: string }>('/admin/llm-config', data);

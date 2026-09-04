@@ -1,0 +1,82 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px 0 4px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.heading h2 {
+  margin-bottom: 4px;
+}
+
+.headingIcon {
+  flex: 0 0 auto;
+  font-size: 40px;
+  color: var(--color-text);
+}
+
+.card {
+  border-color: var(--color-border-light);
+  box-shadow: none;
+}
+
+.alert {
+  margin-top: 16px;
+}
+
+.stepDetail {
+  margin-top: 4px;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.summary {
+  white-space: pre-wrap;
+  line-height: 1.8;
+}
+
+.json {
+  max-height: 520px;
+  margin: 0;
+  padding: 16px;
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-bg-secondary);
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 576px) {
+  .heading {
+    padding-top: 8px;
+  }
+
+  .headingIcon {
+    display: none;
+  }
+
+  .card :global(.ant-card-head) {
+    padding: 0 16px;
+  }
+
+  .card :global(.ant-card-body) {
+    padding: 16px;
+  }
+}
