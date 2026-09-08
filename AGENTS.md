@@ -24,7 +24,7 @@
 | Agent（Phase 2） | Python 3.12+ + FastAPI | LangChain / LlamaIndex |
 | 数据库 | MySQL 8.4 | utf8mb4, InnoDB |
 | 缓存 | Redis 7 | go-redis/v9 |
-| 消息队列 | Kafka | IBM/sarama |
+| 消息队列 | RocketMQ 5 | 异步任务与事件流 |
 | 搜索引擎 | Meilisearch | 中文全文检索 |
 | 配置管理 | Viper | .env + config.yaml |
 | 日志 | Zap | 高并发零分配 |
@@ -93,7 +93,7 @@ medicalagent/
 - **ORM 工作流**：修改 `init_new_database.sql` 后，运行 `gorm gen` 重新生成 `gen/` 目录代码
 - **不使用裸 SQL 字符串拼接**：repository 层通过 GORM Gen 生成的 query API 操作数据库
 - **错误处理**：不吞错误，每层 return error 向上传递，handler 层统一处理并返回 HTTP 状态码
-- **配置**：敏感信息（数据库密码、JWT secret、Kafka 地址）走环境变量或 `.env`，不入 git
+- **配置**：敏感信息（数据库密码、JWT secret、RocketMQ 地址）走环境变量或 `.env`，不入 git
 - **日志**：用 Zap 的 `zap.L()` 全局 logger，不 `fmt.Println`
 - **API 风格**：RESTful，JSON 请求/响应，路由文件按资源拆分
 
@@ -186,6 +186,6 @@ mysql -u root -p ai_medical_db < init_new_database.sql
 ## 架构要点
 
 1. **Go 做 API，Python 做 Agent**：不在同一个进程里混用。Go 通过 HTTP/gRPC 调用 Python Agent 服务
-2. **Kafka 用于异步任务**：论文批量导入、Meta 分析重算、毒性报告生成等耗时操作投递到 Kafka，Go Consumer 消费
+2. **RocketMQ 用于异步任务**：论文批量导入、Meta 分析重算、毒性报告生成等耗时操作投递到 RocketMQ；MVP 阶段 Agent Run 继续使用可靠的 HTTP 调度，后续迁移为生产者/消费者模式
 3. **Meilisearch 做搜索层**：方剂、单味药、论文写入 MySQL 后同步索引到 Meilisearch，中文分词无需额外配置
 4. **Phase 2 不改变 Phase 1 架构**：Agent 服务和 API 服务独立部署，Nginx 统一路由

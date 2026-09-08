@@ -1,11 +1,17 @@
+export type UserStatus = 'pending' | 'active' | 'rejected';
+
 export interface User {
   id: number;
   username: string;
   full_name: string;
+  affiliation: string;
+  professional_title: string;
   phone: string;
   gender: string;
   email: string;
+  email_consent: boolean;
   role: 'admin' | 'user';
+  status: UserStatus;
   created_at: string;
   updated_at: string;
 }
@@ -19,9 +25,12 @@ export interface RegisterRequest {
   username: string;
   password: string;
   full_name: string;
+  affiliation: string;
+  professional_title: string;
   phone: string;
   gender: string;
   email: string;
+  email_consent: boolean;
 }
 
 export interface LoginResponse {
@@ -72,7 +81,6 @@ export interface HerbToxicCompound {
 
 export interface HerbDetail extends HerbBasic {
   toxic_compounds: HerbToxicCompound[];
-  expertises: Expertise[];
 }
 
 export interface DecoctionBasic {
@@ -104,15 +112,6 @@ export interface DecoctionBasic {
   updated_at: string;
 }
 
-export interface DecoctionCompound {
-  id: number;
-  decoction_id: number;
-  compound_type: string;
-  compound_name: string;
-  molecular_formula: string;
-  cas: string;
-}
-
 export interface DecoctionToxicCompound {
   id: number;
   decoction_id: number;
@@ -123,36 +122,8 @@ export interface DecoctionToxicCompound {
   cas: string;
 }
 
-export interface DecoctionMeta {
-  id: number;
-  decoction_id: number;
-  review_number: number;
-  systematic_review: string;
-  link: string;
-  sorting_number: number;
-  index_value: string;
-  study: string;
-  quality_score: number;
-  quality_evaluation_criteria: string;
-  experimental_events: number;
-  experimental_total: number;
-  control_events: number;
-  control_total: number;
-  weight: string;
-  or_or_rr: number;
-  ci_95_lower: number;
-  ci_95_upper: number;
-  index_number: string;
-  p_value: number;
-  i2: string;
-  model: string;
-  tsa_analysis: string;
-}
-
 export interface DecoctionDetail extends DecoctionBasic {
-  compounds: DecoctionCompound[];
   toxic_compounds: DecoctionToxicCompound[];
-  meta: DecoctionMeta[];
 }
 
 export interface HerbCoupletBasic {
@@ -244,6 +215,14 @@ export interface PaperTag {
 
 export interface PaperDetail extends Paper {
   tags: PaperTag[];
+}
+
+export type DynamicRecord = Record<string, unknown>;
+
+export interface CaseClauseDetail {
+  record: DynamicRecord;
+  herbs: HerbBasic[];
+  decoctions: DecoctionBasic[];
 }
 
 
@@ -387,4 +366,80 @@ export interface UpdateLLMConfigRequest {
   api_key?: string;
   model_name: string;
   enabled: boolean;
+}
+
+export interface AgentSession {
+  id?: string | number;
+  session_id?: string;
+  title?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export type AgentMessageRole = 'user' | 'assistant' | 'system';
+
+export interface AgentMessage {
+  id?: string | number;
+  message_id?: string;
+  role: AgentMessageRole;
+  content: string;
+  created_at?: string;
+}
+
+export type AgentEventType =
+  | 'node_start'
+  | 'node_end'
+  | 'llm_start'
+  | 'llm_end'
+  | 'tool_call'
+  | 'tool_result'
+  | 'assistant_delta'
+  | 'error';
+
+export interface AgentEvent {
+  id?: string;
+  event_id?: string;
+  sequence?: number;
+  type: AgentEventType;
+  node?: string;
+  name?: string;
+  tool_name?: string;
+  tool_call_id?: string;
+  status?: string;
+  detail?: string;
+  delta?: string;
+  input?: unknown;
+  output?: unknown;
+  timestamp?: string;
+  created_at?: string;
+}
+
+export type AgentTurnStatus = 'pending' | 'running' | 'completed' | 'failed';
+
+export interface AgentTurn {
+  id?: string;
+  turn_id?: string;
+  status: AgentTurnStatus;
+  events?: AgentEvent[];
+  assistant_message?: AgentMessage | string | null;
+  error?: string;
+  error_message?: string;
+}
+
+export interface AgentSessionDetail {
+  session: AgentSession;
+  messages: AgentMessage[];
+}
+
+export interface CreateAgentSessionRequest {
+  title?: string;
+}
+
+export interface SendAgentMessageRequest {
+  content: string;
+}
+
+export interface SendAgentMessageResponse {
+  turn_id: string;
+  status: AgentTurnStatus;
 }

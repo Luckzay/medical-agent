@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import Layout from './components/Layout';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
@@ -11,10 +11,8 @@ import CoupletList from './pages/CoupletList';
 import CoupletDetail from './pages/CoupletDetail';
 import CompoundList from './pages/CompoundList';
 import CompoundDetail from './pages/CompoundDetail';
-import ExpertiseList from './pages/ExpertiseList';
-import ExpertiseDetail from './pages/ExpertiseDetail';
-import PaperList from './pages/PaperList';
-import PaperDetail from './pages/PaperDetail';
+import CaseClauseList from './pages/CaseClauseList';
+import CaseClauseDetail from './pages/CaseClauseDetail';
 import UserManagement from './pages/UserManagement';
 import AgentWorkspace from './pages/AgentWorkspace';
 import LLMConfigPage from './pages/LLMConfigPage';
@@ -22,14 +20,14 @@ import { useAuth } from './hooks/useAuth';
 
 function AuthenticatedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (!isAuthenticated) {return <Navigate to="/login" replace />;}
   return <>{children}</>;
 }
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, user } = useAuth();
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
-  if (user?.role !== 'admin') return <Navigate to="/" replace />;
+  if (!isAuthenticated) {return <Navigate to="/login" replace />;}
+  if (user?.role !== 'admin') {return <Navigate to="/" replace />;}
   return <>{children}</>;
 }
 
@@ -48,11 +46,11 @@ export default function App() {
         <Route path="/couplets/:id" element={<CoupletDetail />} />
         <Route path="/compounds" element={<CompoundList />} />
         <Route path="/compounds/:id" element={<CompoundDetail />} />
-        <Route path="/expertises" element={<ExpertiseList />} />
-        <Route path="/expertises/:id" element={<ExpertiseDetail />} />
-        <Route path="/papers" element={<PaperList />} />
-        <Route path="/papers/:id" element={<PaperDetail />} />
-        <Route path="/agent" element={<AuthenticatedRoute><AgentWorkspace /></AuthenticatedRoute>} />
+        <Route path="/cases" element={<CaseClauseList kind="cases" />} />
+        <Route path="/cases/:id" element={<CaseClauseDetail kind="cases" />} />
+        <Route path="/clauses" element={<CaseClauseList kind="clauses" />} />
+        <Route path="/clauses/:id" element={<CaseClauseDetail kind="clauses" />} />
+        <Route path="/agent/*" element={<AuthenticatedRoute><AgentWorkspace /></AuthenticatedRoute>} />
         <Route path="/users" element={<AdminRoute><UserManagement /></AdminRoute>} />
         <Route path="/config/llm" element={<AdminRoute><LLMConfigPage /></AdminRoute>} />
       </Route>

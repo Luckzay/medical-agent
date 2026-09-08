@@ -1,0 +1,13 @@
+{
+  "version": "managed-vector-eval-v1",
+  "default_scope": {"tenant_id": "default", "project_id": "literature"},
+  "cases": [
+    {"id": "herb-en", "query": "licorice supramolecular assembly", "kind": "herb", "expected_min_hits": 1},
+    {"id": "herb-zh", "query": "甘草 超分子 组装", "kind": "multilingual-semantic", "expected_min_hits": 0},
+    {"id": "compound", "query": "glycyrrhizic acid", "kind": "compound", "expected_min_hits": 1},
+    {"id": "smiles", "query": "CC(=O)OC1=CC=CC=C1C(=O)O", "kind": "smiles", "expected_min_hits": 0},
+    {"id": "irrelevant", "query": "quantum telescope galaxy", "kind": "irrelevant-near-match", "expected_max_hits": 0},
+    {"id": "deleted", "query": "obsolete tombstoned evidence", "kind": "deletion", "expected_max_hits": 0},
+    {"id": "permission", "query": "zxqv-cross-project-forbidden-token", "kind": "permission-boundary", "expected_max_hits": 0}
+  ]
+}

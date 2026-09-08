@@ -14,8 +14,32 @@
   max-width: 680px;
 }
 
+.introduction {
+  padding: 32px 0 0;
+}
+
+.sectionTitle {
+  color: var(--color-text);
+  margin-bottom: 16px;
+}
+
+.introductionText {
+  max-width: 960px;
+  margin-bottom: 0;
+  color: var(--color-text-secondary);
+  font-size: 15px;
+  line-height: 1.9;
+}
+
 .stats {
-  padding: 32px 0;
+  padding: 28px 0 32px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 16px;
 }
 
 .statItem {
@@ -35,11 +59,6 @@
 
 .modules {
   padding: 32px 0;
-}
-
-.modulesTitle {
-  color: var(--color-text);
-  margin-bottom: 24px;
 }
 
 .moduleCard {
@@ -73,4 +92,56 @@
   font-size: 13px;
   color: var(--color-text-secondary);
   line-height: 1.6;
+}
+
+.team {
+  padding: 32px 0 48px;
+  border-top: 1px solid var(--color-border);
+}
+
+.teamContent {
+  max-width: 960px;
+  padding: 20px 24px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-bg);
+}
+
+.teamName {
+  margin-bottom: 8px;
+  color: var(--color-text);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.teamDescription {
+  margin-bottom: 0;
+  color: var(--color-text-secondary);
+  font-size: 15px;
+  line-height: 1.9;
+}
+
+@media (max-width: 900px) {
+  .statsGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .hero {
+    padding-top: 32px;
+  }
+
+  .introductionText {
+    font-size: 14px;
+    line-height: 1.8;
+  }
+
+  .statsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .statItem:last-child {
+    grid-column: 1 / -1;
+  }
 }

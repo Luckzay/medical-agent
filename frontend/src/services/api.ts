@@ -1,7 +1,7 @@
 import axios from 'axios';
 import type {
-  LoginRequest, LoginResponse, RegisterRequest, User,
-  PaginatedResponse,
+  LoginRequest, LoginResponse, RegisterRequest, User, UserStatus,
+  PaginatedResponse, DynamicRecord, CaseClauseDetail,
   HerbBasic, HerbDetail,
   DecoctionBasic, DecoctionDetail,
   HerbCoupletBasic, CoupletDetail,
@@ -9,6 +9,8 @@ import type {
   Expertise,
   Paper, PaperDetail,
   AgentRun, CreateAgentRunRequest,
+  AgentSession, AgentSessionDetail, AgentTurn,
+  CreateAgentSessionRequest, SendAgentMessageRequest, SendAgentMessageResponse,
   LLMConfig, UpdateLLMConfigRequest,
 } from '../types';
 
@@ -23,13 +25,13 @@ function stripSystemFields<T extends object>(data: T): Partial<T> {
 
 function stripBlankPassword<T extends object>(data: T): Partial<T> {
   const cleaned = stripSystemFields(data) as Record<string, unknown>;
-  if (cleaned.password === '') delete cleaned.password;
+  if (cleaned.password === '') {delete cleaned.password;}
   return cleaned as Partial<T>;
 }
 
 api.interceptors.request.use((config) => {
   const token = sessionStorage.getItem('token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  if (token) {config.headers.Authorization = `Bearer ${token}`;}
   return config;
 });
 
@@ -55,7 +57,7 @@ interface APIErrorBody {
 }
 
 export function getApiErrorMessage(error: unknown, fallback: string): string {
-  if (!axios.isAxiosError<APIErrorBody>(error)) return fallback;
+  if (!axios.isAxiosError<APIErrorBody>(error)) {return fallback;}
   return error.response?.data?.error || error.response?.data?.message || error.message || fallback;
 }
 
@@ -69,6 +71,8 @@ export const listUsers = (page = 1, pageSize = 20) =>
 export const createUser = (data: Partial<User> & { password: string }) => api.post<{ data: User }>('/users', stripSystemFields(data));
 export const updateUser = (id: number, data: Partial<User>) => api.put(`/users/${id}`, stripBlankPassword(data));
 export const deleteUser = (id: number) => api.delete(`/users/${id}`);
+export const updateUserStatus = (id: number, status: UserStatus) =>
+  api.patch<{ data: User }>(`/users/${id}/status`, { status });
 
 // Herbs
 export const listHerbs = (page = 1, pageSize = 20, keyword = '') =>
@@ -106,6 +110,16 @@ export const createCompound = (data: Partial<MolecularInfo>) => api.post<{ data:
 export const updateCompound = (id: number, data: Partial<MolecularInfo>) => api.put(`/compounds/${id}`, stripSystemFields(data));
 export const deleteCompound = (id: number) => api.delete(`/compounds/${id}`);
 
+// Cases and clauses with unknown main-table schemas
+export const listCases = (page = 1, pageSize = 20) =>
+  api.get<PaginatedResponse<DynamicRecord>>('/cases', { params: { page, page_size: pageSize } });
+export const getCaseDetail = (id: string | number) =>
+  api.get<{ data: CaseClauseDetail }>(`/cases/${encodeURIComponent(id)}`);
+export const listClauses = (page = 1, pageSize = 20) =>
+  api.get<PaginatedResponse<DynamicRecord>>('/clauses', { params: { page, page_size: pageSize } });
+export const getClauseDetail = (id: string | number) =>
+  api.get<{ data: CaseClauseDetail }>(`/clauses/${encodeURIComponent(id)}`);
+
 // Expertises
 export const listExpertises = (page = 1, pageSize = 20, keyword = '') =>
   api.get<PaginatedResponse<Expertise>>('/expertises', { params: { page, page_size: pageSize, keyword } });
@@ -134,6 +148,18 @@ export const getAgentRun = (runId: string) =>
   api.get<{ data: AgentRun }>(`/agent/runs/${encodeURIComponent(runId)}`);
 export const resumeAgentRun = (runId: string) =>
   api.post<{ data: AgentRun }>(`/agent/runs/${encodeURIComponent(runId)}/resume`);
+
+// Agent chat workspace
+export const createAgentSession = (data: CreateAgentSessionRequest) =>
+  api.post<{ data: AgentSession | { session: AgentSession } }>('/agent/sessions', data);
+export const listAgentSessions = () =>
+  api.get<{ data: AgentSession[] | { sessions: AgentSession[] } }>('/agent/sessions');
+export const getAgentSession = (sessionId: string) =>
+  api.get<{ data: AgentSessionDetail }>(`/agent/sessions/${encodeURIComponent(sessionId)}`);
+export const sendAgentMessage = (sessionId: string, data: SendAgentMessageRequest) =>
+  api.post<{ data: SendAgentMessageResponse }>(`/agent/sessions/${encodeURIComponent(sessionId)}/messages`, data);
+export const getAgentTurn = (sessionId: string, turnId: string) =>
+  api.get<{ data: AgentTurn }>(`/agent/sessions/${encodeURIComponent(sessionId)}/turns/${encodeURIComponent(turnId)}`);
 
 // LLM configuration (admin only)
 export const getLLMConfig = () => api.get<LLMConfig>('/admin/llm-config');

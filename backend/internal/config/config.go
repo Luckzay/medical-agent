@@ -6,10 +6,13 @@ import (
 )
 
 type Config struct {
-	DB     DBConfig
-	Redis  RedisConfig
-	JWT    JWTConfig
-	Server ServerConfig
+	DB               DBConfig
+	Redis            RedisConfig
+	RocketMQ         RocketMQConfig
+	JWT              JWTConfig
+	Server           ServerConfig
+	Agent            AgentConfig
+	LLMEncryptionKey string
 }
 
 type DBConfig struct {
@@ -25,6 +28,12 @@ type RedisConfig struct {
 	Password string
 }
 
+type RocketMQConfig struct {
+	NameServerAddr string
+	Topic          string
+	ConsumerGroup  string
+}
+
 type JWTConfig struct {
 	Secret string
 }
@@ -32,6 +41,12 @@ type JWTConfig struct {
 type ServerConfig struct {
 	Port              string
 	CORSAllowedOrigin string
+}
+
+type AgentConfig struct {
+	ServiceURL     string
+	TimeoutSeconds int
+	InternalToken  string
 }
 
 func (c DBConfig) DSN() string {
@@ -58,6 +73,11 @@ func Load() *Config {
 			Addr:     viper.GetString("REDIS_ADDR"),
 			Password: viper.GetString("REDIS_PASSWORD"),
 		},
+		RocketMQ: RocketMQConfig{
+			NameServerAddr: viper.GetString("ROCKETMQ_NAMESRV_ADDR"),
+			Topic:          viper.GetString("ROCKETMQ_TOPIC"),
+			ConsumerGroup:  viper.GetString("ROCKETMQ_CONSUMER_GROUP"),
+		},
 		JWT: JWTConfig{
 			Secret: viper.GetString("JWT_SECRET"),
 		},
@@ -65,6 +85,12 @@ func Load() *Config {
 			Port:              viper.GetString("SERVER_PORT"),
 			CORSAllowedOrigin: viper.GetString("CORS_ALLOWED_ORIGIN"),
 		},
+		Agent: AgentConfig{
+			ServiceURL:     viper.GetString("AGENT_SERVICE_URL"),
+			TimeoutSeconds: viper.GetInt("AGENT_SERVICE_TIMEOUT_SECONDS"),
+			InternalToken:  viper.GetString("AGENT_INTERNAL_TOKEN"),
+		},
+		LLMEncryptionKey: viper.GetString("LLM_ENCRYPTION_KEY"),
 	}
 
 	if cfg.Server.Port == "" {
@@ -78,6 +104,21 @@ func Load() *Config {
 	}
 	if cfg.Server.CORSAllowedOrigin == "" {
 		cfg.Server.CORSAllowedOrigin = "http://localhost:3000"
+	}
+	if cfg.RocketMQ.NameServerAddr == "" {
+		cfg.RocketMQ.NameServerAddr = "127.0.0.1:9876"
+	}
+	if cfg.RocketMQ.Topic == "" {
+		cfg.RocketMQ.Topic = "medical-agent-runs"
+	}
+	if cfg.RocketMQ.ConsumerGroup == "" {
+		cfg.RocketMQ.ConsumerGroup = "medical-agent-workers"
+	}
+	if cfg.Agent.ServiceURL == "" {
+		cfg.Agent.ServiceURL = "http://127.0.0.1:8090"
+	}
+	if cfg.Agent.TimeoutSeconds <= 0 {
+		cfg.Agent.TimeoutSeconds = 10
 	}
 
 	return cfg

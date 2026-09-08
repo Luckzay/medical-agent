@@ -1,0 +1,436 @@
+openapi: 3.1.0
+info:
+  title: Medical Agent Internal API
+  version: 0.8.0
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HealthResponse" }
+  /internal/v1/runs:
+    post:
+      operationId: createRun
+      security:
+        - AgentToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RunCreate" }
+      responses:
+        "201":
+          description: Run accepted and durably queued for background execution
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RunResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+  /internal/v1/runs/{run_id}:
+    parameters:
+      - $ref: "#/components/parameters/RunId"
+    get:
+      operationId: getRun
+      security:
+        - AgentToken: []
+      responses:
+        "200":
+          description: Run found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RunResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      operationId: cancelRun
+      security:
+        - AgentToken: []
+      responses:
+        "200":
+          description: Run cancelled
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RunResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /internal/v1/runs/{run_id}/resume:
+    parameters:
+      - $ref: "#/components/parameters/RunId"
+    post:
+      operationId: resumeRun
+      security:
+        - AgentToken: []
+      responses:
+        "200":
+          description: Failed workflow accepted for background resume from its latest checkpoint
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RunResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /internal/v1/tools:
+    get:
+      operationId: listTools
+      security:
+        - AgentToken: []
+      responses:
+        "200":
+          description: Registered deterministic tools and their JSON schemas
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /internal/v1/skills:
+    get:
+      operationId: listSkills
+      security:
+        - AgentToken: []
+      responses:
+        "200":
+          description: Registered scientific skills and bound tools
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /internal/v1/runs/{run_id}/tool-audits:
+    parameters:
+      - $ref: "#/components/parameters/RunId"
+    get:
+      operationId: listRunToolAudits
+      security:
+        - AgentToken: []
+      responses:
+        "200":
+          description: Tool execution audit records without tokens or input payloads
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ToolAudit" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /internal/v1/evidence/quality:
+    get:
+      operationId: getEvidenceQuality
+      security:
+        - AgentToken: []
+      responses:
+        "200":
+          description: Quality report for the indexed literature source
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /internal/v1/evidence/search:
+    post:
+      operationId: searchEvidence
+      security:
+        - AgentToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        "200":
+          description: Deterministically ranked literature evidence with source rows
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+  /internal/v1/documents/ingestions:
+    post:
+      operationId: submitDocumentIngestion
+      security: [{ AgentToken: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/TenantId" }
+        - { $ref: "#/components/parameters/ProjectId" }
+        - { $ref: "#/components/parameters/Permissions" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false, required: [logical_source, media_type, content_text] }
+      responses:
+        "202": { description: Ingestion accepted, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+  /internal/v1/ingestions/{job_id}:
+    get:
+      operationId: getIngestionJob
+      security: [{ AgentToken: [] }]
+      parameters:
+        - { name: job_id, in: path, required: true, schema: { type: string } }
+        - { $ref: "#/components/parameters/TenantId" }
+        - { $ref: "#/components/parameters/ProjectId" }
+        - { $ref: "#/components/parameters/Permissions" }
+      responses:
+        "200": { description: Ingestion state, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
+  /internal/v1/documents/{document_id}/versions:
+    get:
+      operationId: listDocumentVersions
+      security: [{ AgentToken: [] }]
+      parameters:
+        - { name: document_id, in: path, required: true, schema: { type: string } }
+        - { $ref: "#/components/parameters/TenantId" }
+        - { $ref: "#/components/parameters/ProjectId" }
+        - { $ref: "#/components/parameters/Permissions" }
+      responses:
+        "200": { description: Immutable versions }
+  /internal/v1/documents/{document_id}:
+    delete:
+      operationId: tombstoneDocument
+      security: [{ AgentToken: [] }]
+      parameters:
+        - { name: document_id, in: path, required: true, schema: { type: string } }
+        - { $ref: "#/components/parameters/TenantId" }
+        - { $ref: "#/components/parameters/ProjectId" }
+        - { $ref: "#/components/parameters/Permissions" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      responses:
+        "200": { description: Document tombstoned }
+  /internal/v1/evidence/indexes/status:
+    get:
+      operationId: getVectorIndexStatus
+      security: [{ AgentToken: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/TenantId" }
+        - { $ref: "#/components/parameters/ProjectId" }
+        - { $ref: "#/components/parameters/Permissions" }
+      responses:
+        "200": { description: Index manifests and health }
+  /internal/v1/evidence/indexes/{operation}:
+    post:
+      operationId: mutateVectorIndex
+      security: [{ AgentToken: [] }]
+      parameters:
+        - { name: operation, in: path, required: true, schema: { type: string, enum: [rebuild, rollback, reconcile] } }
+        - { $ref: "#/components/parameters/TenantId" }
+        - { $ref: "#/components/parameters/ProjectId" }
+        - { $ref: "#/components/parameters/Permissions" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      responses:
+        "202": { description: Index operation accepted }
+  /internal/v1/evidence/search/diagnostics:
+    post:
+      operationId: diagnoseHybridRetrieval
+      security: [{ AgentToken: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/TenantId" }
+        - { $ref: "#/components/parameters/ProjectId" }
+        - { $ref: "#/components/parameters/Permissions" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [query]
+              properties:
+                query: { type: string, minLength: 1, maxLength: 2000 }
+                filters:
+                  type: object
+                  additionalProperties: { type: string }
+      responses:
+        "200":
+          description: Sanitized retrieval diagnostics from the shared Agent runtime
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [mode, degraded, diagnostics, evidence_ids]
+                properties:
+                  mode: { type: string, enum: [lexical, hybrid, hybrid_reranker] }
+                  degraded: { type: boolean }
+                  degraded_reason: { type: [string, "null"] }
+                  diagnostics:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                      properties:
+                        lexical_rank: { type: [integer, "null"] }
+                        vector_rank: { type: [integer, "null"] }
+                        fused_rank: { type: [integer, "null"] }
+                        rerank_rank: { type: [integer, "null"] }
+                        rerank_score: { type: [number, "null"] }
+                        reranker_fingerprint: { type: [string, "null"] }
+                        degraded_reason: { type: [string, "null"] }
+                  evidence_ids: { type: array, items: { type: string } }
+                  scope: { type: object }
+                  query_length: { type: integer }
+                  filter_names: { type: array, items: { type: string } }
+components:
+  securitySchemes:
+    AgentToken:
+      type: apiKey
+      in: header
+      name: X-Agent-Token
+  parameters:
+    RunId:
+      name: run_id
+      in: path
+      required: true
+      schema: { type: string, minLength: 1 }
+    TenantId:
+      name: X-Tenant-ID
+      in: header
+      required: true
+      schema: { type: string, minLength: 1 }
+    ProjectId:
+      name: X-Project-ID
+      in: header
+      required: true
+      schema: { type: string, minLength: 1 }
+    Permissions:
+      name: X-Agent-Permissions
+      in: header
+      required: true
+      schema: { type: string, minLength: 1 }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, minLength: 8 }
+  responses:
+    Unauthorized:
+      description: Invalid or missing agent token
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    Conflict:
+      description: Run already exists or its state does not allow the requested operation
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    NotFound:
+      description: Run not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    ValidationFailed:
+      description: Request validation failed
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+  schemas:
+    RunStatus:
+      type: string
+      enum: [pending, running, completed, failed, cancelled]
+    RunCreate:
+      type: object
+      additionalProperties: false
+      required: [run_id, user_id, trace_id, herbs, research_goal]
+      properties:
+        run_id: { type: string, minLength: 1 }
+        user_id: { type: integer }
+        trace_id: { type: string, minLength: 1 }
+        herbs:
+          type: array
+          minItems: 1
+          items: { type: string, minLength: 1 }
+        research_goal: { type: [string, "null"] }
+    RunResponse:
+      allOf:
+        - $ref: "#/components/schemas/RunCreate"
+        - type: object
+          required: [status, created_at, updated_at]
+          properties:
+            status: { $ref: "#/components/schemas/RunStatus" }
+            error_message: { type: [string, "null"] }
+            workflow:
+              oneOf:
+                - $ref: "#/components/schemas/WorkflowMetadata"
+                - type: "null"
+            analysis_result:
+              oneOf:
+                - $ref: "#/components/schemas/AnalysisResult"
+                - type: "null"
+            created_at: { type: string, format: date-time }
+            updated_at: { type: string, format: date-time }
+    AnalysisResult:
+      type: object
+      description: Versioned deterministic scientific analysis produced by the Python Agent.
+      required: [schema_version, normalized_herbs, compounds, summary, capabilities, evidence]
+      additionalProperties: true
+      properties:
+        schema_version: { type: string }
+        normalized_herbs:
+          type: array
+          items: { type: string }
+        compounds:
+          type: array
+          items: { type: object, additionalProperties: true }
+        summary: { type: object, additionalProperties: true }
+        capabilities: { type: object, additionalProperties: true }
+        evidence:
+          type: array
+          items: { type: object, additionalProperties: true }
+        workflow:
+          oneOf:
+            - $ref: "#/components/schemas/WorkflowMetadata"
+            - type: "null"
+    WorkflowMetadata:
+      type: object
+      additionalProperties: false
+      required: [engine, thread_id, checkpoint_backend, status, steps]
+      properties:
+        engine: { type: string, const: langgraph }
+        thread_id: { type: string }
+        checkpoint_backend: { type: string, enum: [sqlite, in_memory, external] }
+        status: { type: string, enum: [running, completed, failed, cancelled] }
+        steps:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [node, status, started_at, completed_at, detail]
+            properties:
+              node: { type: string }
+              status: { type: string }
+              started_at: { type: string, format: date-time }
+              completed_at: { type: string, format: date-time }
+              detail: { type: string }
+    ToolAudit:
+      type: object
+      additionalProperties: false
+      required: [audit_id, run_id, node, tool_name, tool_version, started_at, completed_at, duration_ms, status, attempts]
+      properties:
+        audit_id: { type: string }
+        run_id: { type: string }
+        node: { type: string }
+        tool_name: { type: string }
+        tool_version: { type: string }
+        started_at: { type: string, format: date-time }
+        completed_at: { type: string, format: date-time }
+        duration_ms: { type: integer, minimum: 0 }
+        status: { type: string }
+        attempts: { type: integer, minimum: 0 }
+        error_type: { type: [string, "null"] }
+        error_message: { type: [string, "null"] }
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required: [service, status, version]
+      properties:
+        service: { type: string }
+        status: { type: string, const: ok }
+        version: { type: string }
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [detail]
+      properties:
+        detail: { type: string }

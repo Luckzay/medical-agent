@@ -11,15 +11,11 @@ import (
 )
 
 type HerbService struct {
-	herbRepo      *repository.HerbRepo
-	expertiseRepo *repository.ExpertiseRepo
+	herbRepo *repository.HerbRepo
 }
 
 func NewHerbService() *HerbService {
-	return &HerbService{
-		herbRepo:      repository.NewHerbRepo(),
-		expertiseRepo: repository.NewExpertiseRepo(),
-	}
+	return &HerbService{herbRepo: repository.NewHerbRepo()}
 }
 
 func (s *HerbService) List(page, pageSize int, keyword string) ([]model.HerbBasic, int64, error) {
@@ -46,7 +42,6 @@ func (s *HerbService) List(page, pageSize int, keyword string) ([]model.HerbBasi
 type HerbDetail struct {
 	*model.HerbBasic
 	ToxicCompounds []model.HerbToxicCompound `json:"toxic_compounds"`
-	Expertises     []model.Expertise         `json:"expertises"`
 }
 
 func (s *HerbService) GetDetail(id int) (*HerbDetail, error) {
@@ -63,9 +58,8 @@ func (s *HerbService) GetDetail(id int) (*HerbDetail, error) {
 		return nil, err
 	}
 	compounds, _ := s.herbRepo.GetToxicCompounds(id)
-	expertises, _ := s.expertiseRepo.ListByHerbID(id)
 
-	detail := &HerbDetail{HerbBasic: h, ToxicCompounds: compounds, Expertises: expertises}
+	detail := &HerbDetail{HerbBasic: h, ToxicCompounds: compounds}
 	cache.Set(ctx, cacheKey, detail, 10*time.Minute)
 	return detail, nil
 }

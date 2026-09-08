@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"medicalagent/internal/middleware"
 	"medicalagent/internal/model"
@@ -17,6 +19,30 @@ type UserHandler struct {
 }
 
 func NewUserHandler() *UserHandler { return &UserHandler{svc: service.NewUserService()} }
+
+func validateRequiredUserProfile(user *model.User) string {
+	user.Affiliation = strings.TrimSpace(user.Affiliation)
+	user.ProfessionalTitle = strings.TrimSpace(user.ProfessionalTitle)
+	if user.Affiliation == "" {
+		return "单位不能为空"
+	}
+	if user.ProfessionalTitle == "" {
+		return "职称不能为空"
+	}
+	return ""
+}
+
+func prepareRegistration(user *model.User) {
+	user.Role = "user"
+	user.Status = model.UserStatusPending
+}
+
+func prepareAdminCreatedUser(user *model.User) {
+	if user.Role == "" {
+		user.Role = "user"
+	}
+	user.Status = model.UserStatusActive
+}
 
 // Login godoc
 // @Summary      用户登录
@@ -41,7 +67,12 @@ func (h *UserHandler) Login(c *gin.Context) {
 	userResp, err := h.svc.Login(req.Username, req.Password)
 	zap.L().Info("login", zap.String("username", req.Username))
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "用户名或密码错误"})
+		switch {
+		case errors.Is(err, service.ErrUserPending), errors.Is(err, service.ErrUserRejected):
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		default:
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "用户名或密码错误"})
+		}
 		zap.L().Error("login", zap.Error(err))
 		return
 	}
@@ -64,7 +95,11 @@ func (h *UserHandler) Register(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "用户名和密码不能为空"})
 		return
 	}
-	user.Role = "user"
+	if message := validateRequiredUserProfile(&user); message != "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": message})
+		return
+	}
+	prepareRegistration(&user)
 	userResp, err := h.svc.Create(&user)
 	if err != nil {
 		c.JSON(http.StatusConflict, gin.H{"error": "注册失败，用户名或邮箱可能已存在"})
@@ -97,6 +132,11 @@ func (h *UserHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	if message := validateRequiredUserProfile(&user); message != "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": message})
+		return
+	}
+	prepareAdminCreatedUser(&user)
 	userResp, err := h.svc.Create(&user)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -122,6 +162,27 @@ func (h *UserHandler) Update(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "更新成功"})
+}
+
+func (h *UserHandler) UpdateStatus(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil || id < 1 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的用户ID"})
+		return
+	}
+	var req struct {
+		Status string `json:"status" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "请输入用户状态"})
+		return
+	}
+	role, _ := c.Get("role")
+	if err := h.svc.UpdateStatus(id, req.Status, role == "admin"); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "审核状态更新成功", "status": req.Status})
 }
 
 func (h *UserHandler) Delete(c *gin.Context) {

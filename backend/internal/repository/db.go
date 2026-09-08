@@ -26,14 +26,16 @@ func InitDB(cfg config.DBConfig) error {
 		&model.HerbBasic{},
 		&model.HerbToxicCompound{},
 		&model.DecoctionBasic{},
-		&model.DecoctionCompound{},
 		&model.DecoctionToxicCompound{},
-		&model.DecoctionMeta{},
 		&model.HerbCoupletBasic{},
 		&model.HerbCoupletToxicCompound{},
-		&model.Expertise{},
 		&model.Paper{},
 		&model.PaperTag{},
+		&model.AgentRun{},
+		&model.AgentSession{},
+		&model.AgentChatMessage{},
+		&model.AgentChatTurn{},
+		&model.LLMConfig{},
 	}
 
 	if err := DB.AutoMigrate(tables...); err != nil {

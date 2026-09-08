@@ -5,13 +5,14 @@ import { SearchOutlined, ReloadOutlined, PlusOutlined, EditOutlined, DeleteOutli
 import type { MolecularInfo } from '../types';
 import { listCompounds, createCompound, updateCompound, deleteCompound } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
+import GuestListNotice from '../components/GuestListNotice';
 import styles from './ListPage.module.css';
 
 const { Title } = Typography;
 
 export default function CompoundList() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const isAdmin = user?.role === 'admin';
   const [searchParams, setSearchParams] = useSearchParams();
   const [data, setData] = useState<MolecularInfo[]>([]);
@@ -20,6 +21,7 @@ export default function CompoundList() {
   const [keyword, setKeyword] = useState(searchParams.get('keyword') || '');
   const [page, setPage] = useState(Number(searchParams.get('page')) || 1);
   const pageSize = 20;
+  const visiblePage = isAuthenticated ? page : 1;
   const [modalOpen, setModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<MolecularInfo | null>(null);
   const [form] = Form.useForm();
@@ -33,7 +35,7 @@ export default function CompoundList() {
     } finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchData(page, keyword); }, [page, keyword]);
+  useEffect(() => { fetchData(visiblePage, keyword); }, [visiblePage, keyword]);
   const onSearch = () => { setPage(1); setSearchParams({ keyword, page: '1' }); };
   const onReset = () => { setKeyword(''); setPage(1); setSearchParams({}); };
 
@@ -105,15 +107,16 @@ export default function CompoundList() {
           style={{ maxWidth: 400 }} prefix={<SearchOutlined />} allowClear />
         <Button type="primary" onClick={onSearch}>搜索</Button>
         <Button icon={<ReloadOutlined />} onClick={onReset}>重置</Button>
-          {isAdmin && (
-            <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd} style={{ marginLeft: 'auto' }}>
-              新增
-            </Button>
-          )}
+        {isAdmin ? (
+          <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd} style={{ marginLeft: 'auto' }}>
+            新增
+          </Button>
+        ) : null}
       </div>
       <Table columns={columns} dataSource={data} rowKey="record_number" loading={loading}
-        pagination={{ current: page, total, pageSize, onChange: (p) => { setPage(p); setSearchParams({ keyword, page: String(p) }); }, showTotal: (t) => `共 ${t} 条` }}
+        pagination={{ current: visiblePage, total: isAuthenticated ? total : Math.min(total, pageSize), pageSize, hideOnSinglePage: true, onChange: (p) => { setPage(p); setSearchParams({ keyword, page: String(p) }); }, showTotal: (t) => `共 ${t} 条` }}
         onRow={(r) => ({ onClick: () => navigate(`/compounds/${r.record_number}`), style: { cursor: 'pointer' } })} />
+      <GuestListNotice total={total} pageSize={pageSize} />
 
       <Modal title={editingRecord ? '编辑化合物' : '新增化合物'} open={modalOpen}
         onOk={handleSubmit} onCancel={() => setModalOpen(false)} width={760} destroyOnHidden>

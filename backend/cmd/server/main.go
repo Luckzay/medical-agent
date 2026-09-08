@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"strings"
+	_ "time/tzdata"
 
 	"medicalagent/internal/cache"
 	"medicalagent/internal/config"
@@ -40,6 +41,10 @@ func main() {
 	if strings.TrimSpace(cfg.JWT.Secret) == "" {
 		zap.L().Fatal("JWT_SECRET is required")
 	}
+	cfg.Agent.InternalToken = strings.TrimSpace(cfg.Agent.InternalToken)
+	if cfg.Agent.InternalToken == "" {
+		zap.L().Fatal("AGENT_INTERNAL_TOKEN is required")
+	}
 
 	middleware.JWTSecret = cfg.JWT.Secret
 	middleware.CORSAllowedOrigin = cfg.Server.CORSAllowedOrigin
@@ -51,7 +56,7 @@ func main() {
 
 	cache.Init(cfg.Redis)
 
-	r := handler.SetupRouter()
+	r := handler.SetupRouter(cfg)
 
 	addr := fmt.Sprintf(":%s", cfg.Server.Port)
 	zap.L().Info("Server starting", zap.String("addr", addr))
