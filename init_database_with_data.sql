@@ -28,11 +28,15 @@ CREATE TABLE `users` (
   `id`           INT          NOT NULL AUTO_INCREMENT,
   `username`     VARCHAR(50)  NOT NULL,
   `password`     VARCHAR(255) NOT NULL COMMENT 'bcrypt hash',
-  `full_name`    VARCHAR(50)  NOT NULL,
-  `phone`        VARCHAR(20)  NOT NULL,
-  `gender`       ENUM('male','female','other') NOT NULL DEFAULT 'other',
-  `role`         VARCHAR(50)  NOT NULL DEFAULT 'user',
-  `email`        VARCHAR(100) NOT NULL,
+  `full_name`         VARCHAR(50)  NOT NULL,
+  `affiliation`       VARCHAR(150) NOT NULL DEFAULT '',
+  `professional_title` VARCHAR(100) NOT NULL DEFAULT '',
+  `phone`             VARCHAR(20)  NOT NULL,
+  `gender`            ENUM('male','female','other') NOT NULL DEFAULT 'other',
+  `role`              VARCHAR(50)  NOT NULL DEFAULT 'user',
+  `status`            ENUM('pending','active','rejected') NOT NULL DEFAULT 'active',
+  `email`             VARCHAR(100) NOT NULL,
+  `email_consent`     BOOLEAN      NOT NULL DEFAULT FALSE,
   `created_at`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -2942,9 +2946,13 @@ DROP TABLE IF EXISTS `_tmp_old_molecular_info`;
 -- 第五部分：默认账户（密码均为 admin123，请登录后立即修改）
 -- ============================================================================
 
-INSERT INTO `users` (`username`, `password`, `full_name`, `phone`, `gender`, `role`, `email`) VALUES
-('admin', '$2a$10$.xkkYvUuABQFpc399dmjqe0/TGqskvYLtXjb9KfMPVaizvnhG19Dm', '系统管理员', '13800000000', 'male', 'admin', 'admin@example.com'),
-('user', '$2a$10$.xkkYvUuABQFpc399dmjqe0/TGqskvYLtXjb9KfMPVaizvnhG19Dm', '普通用户', '13900000000', 'female', 'user', 'user@example.com');
+INSERT INTO `users` (`username`, `password`, `full_name`, `affiliation`, `professional_title`, `phone`, `gender`, `role`, `status`, `email`, `email_consent`) VALUES
+('admin',  '$2y$10$HJ7hJVRYZFTxdaznM7OMz.FF.iAPvnajhTchIoay6VyEM0PP3su06', '系统管理员1', '示例医疗机构', '系统管理员', '00000000001', 'other', 'admin', 'active', 'admin@example.com', TRUE),
+('admin2', '$2y$10$HJ7hJVRYZFTxdaznM7OMz.FF.iAPvnajhTchIoay6VyEM0PP3su06', '系统管理员2', '示例医疗机构', '系统管理员', '00000000002', 'other', 'admin', 'active', 'admin2@example.com', TRUE),
+('admin3', '$2y$10$HJ7hJVRYZFTxdaznM7OMz.FF.iAPvnajhTchIoay6VyEM0PP3su06', '系统管理员3', '示例医疗机构', '系统管理员', '00000000003', 'other', 'admin', 'active', 'admin3@example.com', TRUE),
+('admin4', '$2y$10$HJ7hJVRYZFTxdaznM7OMz.FF.iAPvnajhTchIoay6VyEM0PP3su06', '系统管理员4', '示例医疗机构', '系统管理员', '00000000004', 'other', 'admin', 'active', 'admin4@example.com', TRUE),
+('admin5', '$2y$10$HJ7hJVRYZFTxdaznM7OMz.FF.iAPvnajhTchIoay6VyEM0PP3su06', '系统管理员5', '示例医疗机构', '系统管理员', '00000000005', 'other', 'admin', 'active', 'admin5@example.com', TRUE),
+('user',   '$2y$10$HJ7hJVRYZFTxdaznM7OMz.FF.iAPvnajhTchIoay6VyEM0PP3su06', '普通用户', '示例医疗机构', '医师', '00000000006', 'other', 'user', 'active', 'user@example.com', FALSE);
 
 SET FOREIGN_KEY_CHECKS = 1;
 

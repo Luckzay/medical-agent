@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { Form, Input, Button, Typography, message } from 'antd';
-import { UserOutlined, LockOutlined } from '@ant-design/icons';
+import { Link, useNavigate } from 'react-router-dom';
+import { Button, Form, Input, message, Typography } from 'antd';
+import { LockOutlined, UserOutlined } from '@ant-design/icons';
 import { useAuth } from '../hooks/useAuth';
+import { getApiErrorMessage } from '../services/api';
 import styles from './LoginPage.module.css';
 
 const { Title } = Typography;
@@ -18,8 +19,8 @@ export default function LoginPage() {
       await login(values.username, values.password);
       message.success('登录成功');
       navigate('/');
-    } catch {
-      message.error('用户名或密码错误');
+    } catch (error: unknown) {
+      message.error(getApiErrorMessage(error, '登录失败，请稍后重试'));
     } finally {
       setLoading(false);
     }

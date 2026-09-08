@@ -1,0 +1,244 @@
+﻿mysql_version	current_database
+8.4.6	ai_medical_db
+TABLE_NAME	TABLE_ROWS	TABLE_COLLATION
+case_decoctions	433	utf8mb4_unicode_ci
+case_herbs	4472	utf8mb4_unicode_ci
+cases	1503	utf8mb4_unicode_ci
+clause_decoctions	562	utf8mb4_unicode_ci
+clause_herbs	4939	utf8mb4_unicode_ci
+clauses	2226	utf8mb4_unicode_ci
+decoction_basic	68	utf8mb4_unicode_ci
+herb_basic	82	utf8mb4_0900_ai_ci
+Table	Create Table
+clauses	CREATE TABLE `clauses` (
+  `clause_id` int NOT NULL,
+  `filename` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `result_type` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `target_content` text COLLATE utf8mb4_unicode_ci,
+  `symptom_description` text COLLATE utf8mb4_unicode_ci,
+  `intervention_method` text COLLATE utf8mb4_unicode_ci,
+  `explanation_of_ineffectiveness` text COLLATE utf8mb4_unicode_ci,
+  `combined_explanation` text COLLATE utf8mb4_unicode_ci,
+  PRIMARY KEY (`clause_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+Table	Create Table
+clause_herbs	CREATE TABLE `clause_herbs` (
+  `clause_id` int NOT NULL,
+  `herb_id` int NOT NULL,
+  PRIMARY KEY (`clause_id`,`herb_id`),
+  KEY `idx_clause_id` (`clause_id`),
+  KEY `idx_herb_id` (`herb_id`),
+  CONSTRAINT `fk_clause_herbs_clause` FOREIGN KEY (`clause_id`) REFERENCES `clauses` (`clause_id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_clause_herbs_herb` FOREIGN KEY (`herb_id`) REFERENCES `herb_basic` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+Table	Create Table
+clause_decoctions	CREATE TABLE `clause_decoctions` (
+  `clause_id` int NOT NULL,
+  `decoction_id` int NOT NULL,
+  PRIMARY KEY (`clause_id`,`decoction_id`),
+  KEY `idx_clause_id` (`clause_id`),
+  KEY `idx_decoction_id` (`decoction_id`),
+  CONSTRAINT `fk_clause_decoctions_clause` FOREIGN KEY (`clause_id`) REFERENCES `clauses` (`clause_id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_clause_decoctions_decoction` FOREIGN KEY (`decoction_id`) REFERENCES `decoction_basic` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+Table	Create Table
+cases	CREATE TABLE `cases` (
+  `case_id` int NOT NULL,
+  `filename` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `result_type` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `target_content` text COLLATE utf8mb4_unicode_ci,
+  `patient_age` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `patient_gender` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `main_complaint` text COLLATE utf8mb4_unicode_ci,
+  `symptoms_and_history` text COLLATE utf8mb4_unicode_ci,
+  `past_history` text COLLATE utf8mb4_unicode_ci,
+  `treatment_principle` text COLLATE utf8mb4_unicode_ci,
+  `specific_treatment` text COLLATE utf8mb4_unicode_ci,
+  `response_to_treatment` text COLLATE utf8mb4_unicode_ci,
+  `adjustment_for_ineffectiveness` text COLLATE utf8mb4_unicode_ci,
+  `explanation_of_ineffectiveness` text COLLATE utf8mb4_unicode_ci,
+  `combined_explanation` text COLLATE utf8mb4_unicode_ci,
+  PRIMARY KEY (`case_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+Table	Create Table
+case_herbs	CREATE TABLE `case_herbs` (
+  `case_id` int NOT NULL,
+  `herb_id` int NOT NULL,
+  PRIMARY KEY (`case_id`,`herb_id`),
+  KEY `idx_case_id` (`case_id`),
+  KEY `idx_herb_id` (`herb_id`),
+  CONSTRAINT `fk_case_herbs_case` FOREIGN KEY (`case_id`) REFERENCES `cases` (`case_id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_case_herbs_herb` FOREIGN KEY (`herb_id`) REFERENCES `herb_basic` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+Table	Create Table
+case_decoctions	CREATE TABLE `case_decoctions` (
+  `case_id` int NOT NULL,
+  `decoction_id` int NOT NULL,
+  PRIMARY KEY (`case_id`,`decoction_id`),
+  KEY `idx_case_id` (`case_id`),
+  KEY `idx_decoction_id` (`decoction_id`),
+  CONSTRAINT `fk_case_decoctions_case` FOREIGN KEY (`case_id`) REFERENCES `cases` (`case_id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_case_decoctions_decoction` FOREIGN KEY (`decoction_id`) REFERENCES `decoction_basic` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+Table	Create Table
+herb_basic	CREATE TABLE `herb_basic` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `herb_name` varchar(255) NOT NULL,
+  `herb_name_pinyin` varchar(255) DEFAULT NULL,
+  `functionality` text,
+  `usage_and_dosage` text,
+  `basis_for_usage_and_dosage` varchar(255) DEFAULT NULL,
+  `virulence` text,
+  `toxicity_mechanism` text,
+  `pathological_examination` text,
+  `crowd_taboo` text,
+  `symptom_contraindications` text,
+  `adr` text,
+  `link_to_clinical_suggestion` varchar(512) DEFAULT NULL,
+  `created_at` datetime(3) DEFAULT NULL,
+  `updated_at` datetime(3) DEFAULT NULL,
+  `functionality_basis` text,
+  `link_to_functionality_basis` varchar(512) DEFAULT NULL,
+  `link_to_usage_and_dosage` varchar(512) DEFAULT NULL,
+  `typical_cases_of_adr` text,
+  `clinical_suggestion` text,
+  `clinical_suggestion_basis` text,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uni_herb_basic_herb_name` (`herb_name`)
+) ENGINE=InnoDB AUTO_INCREMENT=104 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+Table	Create Table
+decoction_basic	CREATE TABLE `decoction_basic` (
+  `id` int NOT NULL,
+  `decoction_name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `decoction_name_pinyin` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `dosage_form` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `functionality` text COLLATE utf8mb4_unicode_ci,
+  `functionality_basis` text COLLATE utf8mb4_unicode_ci,
+  `link_to_functionality_basis` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `usage_and_dosage` text COLLATE utf8mb4_unicode_ci,
+  `basis_for_usage_and_dosage` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `link_to_usage_and_dosage` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `virulence` text COLLATE utf8mb4_unicode_ci,
+  `toxicity_mechanism` text COLLATE utf8mb4_unicode_ci,
+  `pathological_examination` text COLLATE utf8mb4_unicode_ci,
+  `crowd_taboo` text COLLATE utf8mb4_unicode_ci,
+  `symptom_contraindications` text COLLATE utf8mb4_unicode_ci,
+  `related_toxic_herbs` text COLLATE utf8mb4_unicode_ci,
+  `adr` text COLLATE utf8mb4_unicode_ci,
+  `typical_cases_of_adr` text COLLATE utf8mb4_unicode_ci,
+  `clinical_suggestion` text COLLATE utf8mb4_unicode_ci,
+  `clinical_suggestion_basis` text COLLATE utf8mb4_unicode_ci,
+  `link_to_clinical_suggestion` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `related_studies` text COLLATE utf8mb4_unicode_ci,
+  `link_to_related_studies` varchar(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `conclusion_of_related_studies` text COLLATE utf8mb4_unicode_ci,
+  `created_at` datetime(3) DEFAULT NULL,
+  `updated_at` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uni_decoction_basic_decoction_name` (`decoction_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+TABLE_NAME	COLUMN_NAME	COLUMN_TYPE	IS_NULLABLE	COLUMN_KEY	COLUMN_DEFAULT	EXTRA	COLUMN_COMMENT
+case_decoctions	case_id	int	NO	PRI	NULL		
+case_decoctions	decoction_id	int	NO	PRI	NULL		
+case_herbs	case_id	int	NO	PRI	NULL		
+case_herbs	herb_id	int	NO	PRI	NULL		
+cases	case_id	int	NO	PRI	NULL		
+cases	filename	varchar(255)	YES		NULL		
+cases	result_type	varchar(255)	YES		NULL		
+cases	target_content	text	YES		NULL		
+cases	patient_age	varchar(255)	YES		NULL		
+cases	patient_gender	varchar(50)	YES		NULL		
+cases	main_complaint	text	YES		NULL		
+cases	symptoms_and_history	text	YES		NULL		
+cases	past_history	text	YES		NULL		
+cases	treatment_principle	text	YES		NULL		
+cases	specific_treatment	text	YES		NULL		
+cases	response_to_treatment	text	YES		NULL		
+cases	adjustment_for_ineffectiveness	text	YES		NULL		
+cases	explanation_of_ineffectiveness	text	YES		NULL		
+cases	combined_explanation	text	YES		NULL		
+clause_decoctions	clause_id	int	NO	PRI	NULL		
+clause_decoctions	decoction_id	int	NO	PRI	NULL		
+clause_herbs	clause_id	int	NO	PRI	NULL		
+clause_herbs	herb_id	int	NO	PRI	NULL		
+clauses	clause_id	int	NO	PRI	NULL		
+clauses	filename	varchar(255)	YES		NULL		
+clauses	result_type	varchar(255)	YES		NULL		
+clauses	target_content	text	YES		NULL		
+clauses	symptom_description	text	YES		NULL		
+clauses	intervention_method	text	YES		NULL		
+clauses	explanation_of_ineffectiveness	text	YES		NULL		
+clauses	combined_explanation	text	YES		NULL		
+decoction_basic	id	int	NO	PRI	NULL		
+decoction_basic	decoction_name	varchar(255)	NO	UNI	NULL		
+decoction_basic	decoction_name_pinyin	varchar(255)	YES		NULL		
+decoction_basic	dosage_form	varchar(255)	YES		NULL		
+decoction_basic	functionality	text	YES		NULL		
+decoction_basic	functionality_basis	text	YES		NULL		
+decoction_basic	link_to_functionality_basis	varchar(512)	YES		NULL		
+decoction_basic	usage_and_dosage	text	YES		NULL		
+decoction_basic	basis_for_usage_and_dosage	varchar(255)	YES		NULL		
+decoction_basic	link_to_usage_and_dosage	varchar(512)	YES		NULL		
+decoction_basic	virulence	text	YES		NULL		
+decoction_basic	toxicity_mechanism	text	YES		NULL		
+decoction_basic	pathological_examination	text	YES		NULL		
+decoction_basic	crowd_taboo	text	YES		NULL		
+decoction_basic	symptom_contraindications	text	YES		NULL		
+decoction_basic	related_toxic_herbs	text	YES		NULL		
+decoction_basic	adr	text	YES		NULL		
+decoction_basic	typical_cases_of_adr	text	YES		NULL		
+decoction_basic	clinical_suggestion	text	YES		NULL		
+decoction_basic	clinical_suggestion_basis	text	YES		NULL		
+decoction_basic	link_to_clinical_suggestion	varchar(512)	YES		NULL		
+decoction_basic	related_studies	text	YES		NULL		
+decoction_basic	link_to_related_studies	varchar(512)	YES		NULL		
+decoction_basic	conclusion_of_related_studies	text	YES		NULL		
+decoction_basic	created_at	datetime(3)	YES		NULL		
+decoction_basic	updated_at	datetime(3)	YES		NULL		
+herb_basic	id	int	NO	PRI	NULL	auto_increment	
+herb_basic	herb_name	varchar(255)	NO	UNI	NULL		
+herb_basic	herb_name_pinyin	varchar(255)	YES		NULL		
+herb_basic	functionality	text	YES		NULL		
+herb_basic	usage_and_dosage	text	YES		NULL		
+herb_basic	basis_for_usage_and_dosage	varchar(255)	YES		NULL		
+herb_basic	virulence	text	YES		NULL		
+herb_basic	toxicity_mechanism	text	YES		NULL		
+herb_basic	pathological_examination	text	YES		NULL		
+herb_basic	crowd_taboo	text	YES		NULL		
+herb_basic	symptom_contraindications	text	YES		NULL		
+herb_basic	adr	text	YES		NULL		
+herb_basic	link_to_clinical_suggestion	varchar(512)	YES		NULL		
+herb_basic	created_at	datetime(3)	YES		NULL		
+herb_basic	updated_at	datetime(3)	YES		NULL		
+herb_basic	functionality_basis	text	YES		NULL		
+herb_basic	link_to_functionality_basis	varchar(512)	YES		NULL		
+herb_basic	link_to_usage_and_dosage	varchar(512)	YES		NULL		
+herb_basic	typical_cases_of_adr	text	YES		NULL		
+herb_basic	clinical_suggestion	text	YES		NULL		
+herb_basic	clinical_suggestion_basis	text	YES		NULL		
+TABLE_NAME	CONSTRAINT_NAME	COLUMN_NAME	REFERENCED_TABLE_NAME	REFERENCED_COLUMN_NAME
+case_decoctions	fk_case_decoctions_case	case_id	cases	case_id
+case_decoctions	fk_case_decoctions_decoction	decoction_id	decoction_basic	id
+case_decoctions	PRIMARY	case_id	NULL	NULL
+case_decoctions	PRIMARY	decoction_id	NULL	NULL
+case_herbs	fk_case_herbs_case	case_id	cases	case_id
+case_herbs	fk_case_herbs_herb	herb_id	herb_basic	id
+case_herbs	PRIMARY	case_id	NULL	NULL
+case_herbs	PRIMARY	herb_id	NULL	NULL
+cases	PRIMARY	case_id	NULL	NULL
+clause_decoctions	fk_clause_decoctions_clause	clause_id	clauses	clause_id
+clause_decoctions	fk_clause_decoctions_decoction	decoction_id	decoction_basic	id
+clause_decoctions	PRIMARY	clause_id	NULL	NULL
+clause_decoctions	PRIMARY	decoction_id	NULL	NULL
+clause_herbs	fk_clause_herbs_clause	clause_id	clauses	clause_id
+clause_herbs	fk_clause_herbs_herb	herb_id	herb_basic	id
+clause_herbs	PRIMARY	clause_id	NULL	NULL
+clause_herbs	PRIMARY	herb_id	NULL	NULL
+clauses	PRIMARY	clause_id	NULL	NULL
+table_name	row_count
+clauses	2947
+clause_herbs	4939
+clause_decoctions	562
+cases	2036
+case_herbs	4472
+case_decoctions	433

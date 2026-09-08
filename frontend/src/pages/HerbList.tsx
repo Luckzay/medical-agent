@@ -5,13 +5,14 @@ import { SearchOutlined, ReloadOutlined, PlusOutlined, EditOutlined, DeleteOutli
 import type { HerbBasic } from '../types';
 import { listHerbs, createHerb, updateHerb, deleteHerb } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
+import GuestListNotice from '../components/GuestListNotice';
 import styles from './ListPage.module.css';
 
 const { Title } = Typography;
 
 export default function HerbList() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const isAdmin = user?.role === 'admin';
   const [searchParams, setSearchParams] = useSearchParams();
   const [data, setData] = useState<HerbBasic[]>([]);
@@ -20,6 +21,7 @@ export default function HerbList() {
   const [keyword, setKeyword] = useState(searchParams.get('keyword') || '');
   const [page, setPage] = useState(Number(searchParams.get('page')) || 1);
   const pageSize = 20;
+  const visiblePage = isAuthenticated ? page : 1;
   const [modalOpen, setModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<HerbBasic | null>(null);
   const [form] = Form.useForm();
@@ -33,7 +35,7 @@ export default function HerbList() {
     } finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchData(page, keyword); }, [page, keyword]);
+  useEffect(() => { fetchData(visiblePage, keyword); }, [visiblePage, keyword]);
   const onSearch = () => { setPage(1); setSearchParams({ keyword, page: '1' }); };
   const onReset = () => { setKeyword(''); setPage(1); setSearchParams({}); };
 
@@ -106,15 +108,16 @@ export default function HerbList() {
           style={{ maxWidth: 320 }} prefix={<SearchOutlined />} allowClear />
         <Button type="primary" onClick={onSearch}>搜索</Button>
         <Button icon={<ReloadOutlined />} onClick={onReset}>重置</Button>
-        {isAdmin && (
+        {isAdmin ? (
           <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd} style={{ marginLeft: 'auto' }}>
             新增
           </Button>
-        )}
+        ) : null}
       </div>
       <Table columns={columns} dataSource={data} rowKey="id" loading={loading}
-        pagination={{ current: page, total, pageSize, onChange: (p) => { setPage(p); setSearchParams({ keyword, page: String(p) }); }, showTotal: (t) => `共 ${t} 条` }}
+        pagination={{ current: visiblePage, total: isAuthenticated ? total : Math.min(total, pageSize), pageSize, hideOnSinglePage: true, onChange: (p) => { setPage(p); setSearchParams({ keyword, page: String(p) }); }, showTotal: (t) => `共 ${t} 条` }}
         onRow={(r) => ({ onClick: () => navigate(`/herbs/${r.id}`), style: { cursor: 'pointer' } })} />
+      <GuestListNotice total={total} pageSize={pageSize} />
 
       <Modal
         title={editingRecord ? '编辑药物' : '新增药物'}

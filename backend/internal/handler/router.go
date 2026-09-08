@@ -1,8 +1,14 @@
 package handler
 
 import (
+	"time"
+
 	_ "medicalagent/docs"
+	agentclient "medicalagent/internal/client/agent"
+	"medicalagent/internal/config"
 	"medicalagent/internal/middleware"
+	"medicalagent/internal/repository"
+	"medicalagent/internal/service"
 
 	"github.com/gin-gonic/gin"
 	swaggerfiles "github.com/swaggo/files"
@@ -10,7 +16,7 @@ import (
 )
 
 // @BasePath /api
-func SetupRouter() *gin.Engine {
+func SetupRouter(cfg *config.Config) *gin.Engine {
 	r := gin.New()
 	r.Use(middleware.Recovery())
 	r.Use(middleware.RequestLogger())
@@ -26,8 +32,10 @@ func SetupRouter() *gin.Engine {
 		auth.POST("/register", NewUserHandler().Register)
 	}
 
-	// public read APIs (no auth required for browsing)
+	// Public reads accept an optional JWT. Protected routes below additionally
+	// require it, while guest reads are constrained by the handlers.
 	api := r.Group("/api")
+	api.Use(middleware.OptionalAuth())
 
 	herbs := api.Group("/herbs")
 	{
@@ -65,13 +73,18 @@ func SetupRouter() *gin.Engine {
 		compounds.DELETE("/:id", middleware.AuthRequired(), middleware.AdminRequired(), NewCompoundHandler().Delete)
 	}
 
-	expertises := api.Group("/expertises")
+	casesHandler := NewImportedContentHandler("case")
+	cases := api.Group("/cases")
 	{
-		expertises.GET("", NewExpertiseHandler().List)
-		expertises.GET("/:id", NewExpertiseHandler().Detail)
-		expertises.POST("", middleware.AuthRequired(), middleware.AdminRequired(), NewExpertiseHandler().Create)
-		expertises.PUT("/:id", middleware.AuthRequired(), middleware.AdminRequired(), NewExpertiseHandler().Update)
-		expertises.DELETE("/:id", middleware.AuthRequired(), middleware.AdminRequired(), NewExpertiseHandler().Delete)
+		cases.GET("", casesHandler.List)
+		cases.GET("/:id", casesHandler.Detail)
+	}
+
+	clausesHandler := NewImportedContentHandler("clause")
+	clauses := api.Group("/clauses")
+	{
+		clauses.GET("", clausesHandler.List)
+		clauses.GET("/:id", clausesHandler.Detail)
 	}
 
 	papers := api.Group("/papers")
@@ -83,6 +96,28 @@ func SetupRouter() *gin.Engine {
 		papers.DELETE("/:id", middleware.AuthRequired(), middleware.AdminRequired(), NewPaperHandler().Delete)
 	}
 
+	agentHTTPClient := agentclient.NewHTTPClient(cfg.Agent.ServiceURL, cfg.Agent.InternalToken, time.Duration(cfg.Agent.TimeoutSeconds)*time.Second)
+	agentRunHandler := NewAgentRunHandler(service.NewAgentRunService(repository.NewAgentRunRepo(), agentHTTPClient))
+	agentRuns := api.Group("/agent/runs")
+	agentRuns.Use(middleware.AuthRequired())
+	{
+		agentRuns.POST("", agentRunHandler.Create)
+		agentRuns.GET("/:run_id", agentRunHandler.Get)
+		agentRuns.POST("/:run_id/resume", agentRunHandler.Resume)
+	}
+
+	agentChatHandler := NewAgentChatHandler(service.NewAgentChatService(repository.NewAgentChatRepo(), agentHTTPClient))
+	agentSessions := api.Group("/agent/sessions")
+	agentSessions.Use(middleware.AuthRequired())
+	{
+		agentSessions.POST("", agentChatHandler.CreateSession)
+		agentSessions.GET("", agentChatHandler.ListSessions)
+		agentSessions.GET("/:id", agentChatHandler.GetSession)
+		agentSessions.POST("/:id/messages", agentChatHandler.SendMessage)
+		agentSessions.GET("/:id/turns/:turn_id", agentChatHandler.GetTurn)
+		agentSessions.GET("/:id/turns/:turn_id/stream", agentChatHandler.StreamTurn)
+	}
+
 	// user management (requires auth + admin)
 	users := api.Group("/users")
 	users.Use(middleware.AuthRequired())
@@ -90,8 +125,28 @@ func SetupRouter() *gin.Engine {
 		users.GET("", middleware.AdminRequired(), NewUserHandler().List)
 		users.POST("", middleware.AdminRequired(), NewUserHandler().Create)
 		users.PUT("/:id", middleware.AdminRequired(), NewUserHandler().Update)
+		users.PATCH("/:id/status", middleware.AdminRequired(), NewUserHandler().UpdateStatus)
 		users.DELETE("/:id", middleware.AdminRequired(), NewUserHandler().Delete)
 	}
+
+	llmConfigSvc := service.NewLLMConfigService(repository.NewLLMConfigRepo(), cfg.LLMEncryptionKey, cfg.Agent.InternalToken)
+	llmConfigHandler := NewLLMConfigHandler(llmConfigSvc)
+
+	adminLLM := api.Group("/admin/llm-config")
+	adminLLM.Use(middleware.AuthRequired(), middleware.AdminRequired())
+	{
+		adminLLM.GET("", llmConfigHandler.Get)
+		adminLLM.PUT("", llmConfigHandler.Update)
+	}
+
+	internal := r.Group("/internal/v1/llm")
+	{
+		internal.POST("/chat", llmConfigHandler.InternalChat)
+		internal.POST("/chat/stream", llmConfigHandler.InternalChatStream)
+	}
+
+	knowledgeHandler := NewKnowledgeHandler(service.NewKnowledgeService(repository.NewKnowledgeRepo()), cfg.Agent.InternalToken)
+	r.POST("/internal/v1/knowledge/search", knowledgeHandler.Search)
 
 	return r
 }

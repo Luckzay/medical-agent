@@ -1,0 +1,35 @@
+{
+  "first_run": {
+    "source_sha256": "040e504414beaa2fca3c4b8c49c4007bc6a4ca857cf8d105c5c723f4b02fd5fd",
+    "created_version": true,
+    "documents": 1,
+    "versions": 1,
+    "blocks": 131,
+    "chunks": 131,
+    "legacy_mappings": 131,
+    "resolved_mappings": 131,
+    "document_id": "3e6178c1-16b1-5fa1-8349-14a69e5a6730",
+    "version_id": "b5a020f9-f888-5565-ba25-960e95569d8b"
+  },
+  "second_run": {
+    "source_sha256": "040e504414beaa2fca3c4b8c49c4007bc6a4ca857cf8d105c5c723f4b02fd5fd",
+    "created_version": false,
+    "documents": 1,
+    "versions": 1,
+    "blocks": 131,
+    "chunks": 131,
+    "legacy_mappings": 131,
+    "resolved_mappings": 131,
+    "document_id": "3e6178c1-16b1-5fa1-8349-14a69e5a6730",
+    "version_id": "b5a020f9-f888-5565-ba25-960e95569d8b"
+  },
+  "canonical_chunk_count": 131,
+  "vector_point_count": 131,
+  "legacy_resolution_count": 131,
+  "deterministic_repeat": true,
+  "embedding": {
+    "fingerprint": "deterministic-test:sha256-expand:v1:d32:norm=True",
+    "test_only": true,
+    "random_vectors": false
+  }
+}

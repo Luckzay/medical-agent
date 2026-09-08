@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   mysql:
     image: mysql:8.4
@@ -10,11 +8,11 @@ services:
       MYSQL_DATABASE: ${DB_NAME:-ai_medical_db}
       TZ: Asia/Shanghai
     ports:
-      - "3306:3306"
+      - "${MYSQL_EXPOSE_PORT:-3306}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./init_new_database.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_0900_ai_ci
+      - ./init_new_database.sql:/docker-entrypoint-initdb.d/10-init-medical-platform.sql:ro
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_0900_ai_ci
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${DB_PASSWORD:-root123}"]
       interval: 10s
@@ -36,6 +34,34 @@ services:
       timeout: 5s
       retries: 5
 
+  rocketmq-namesrv:
+    image: apache/rocketmq:5.3.2
+    container_name: medical-rocketmq-namesrv
+    restart: unless-stopped
+    profiles: ["mq"]
+    command: sh mqnamesrv
+    ports:
+      - "127.0.0.1:9876:9876"
+    volumes:
+      - rocketmq_namesrv_logs:/home/rocketmq/logs
+
+  rocketmq-broker:
+    image: apache/rocketmq:5.3.2
+    container_name: medical-rocketmq-broker
+    restart: unless-stopped
+    profiles: ["mq"]
+    environment:
+      NAMESRV_ADDR: rocketmq-namesrv:9876
+    command: sh mqbroker -n rocketmq-namesrv:9876 --enable-proxy
+    ports:
+      - "127.0.0.1:10911:10911"
+      - "127.0.0.1:8081:8081"
+    volumes:
+      - rocketmq_broker_logs:/home/rocketmq/logs
+      - rocketmq_broker_store:/home/rocketmq/store
+    depends_on:
+      - rocketmq-namesrv
+
   meilisearch:
     image: getmeili/meilisearch:v1.8
     container_name: medical-meilisearch
@@ -53,7 +79,92 @@ services:
       timeout: 5s
       retries: 5
 
+  qdrant:
+    image: ghcr.io/qdrant/qdrant/qdrant:v1.15.4
+    container_name: medical-qdrant
+    restart: unless-stopped
+    profiles: ["vector"]
+    ports:
+      - "127.0.0.1:6333:6333"
+      - "127.0.0.1:6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/6333'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - vector_private
+
+  agent:
+    build:
+      context: ./agent
+    container_name: medical-agent-service
+    restart: unless-stopped
+    environment:
+      AGENT_SERVICE_NAME: tcm-supramolecular-agent
+      AGENT_SERVICE_VERSION: 0.6.0
+      AGENT_INTERNAL_TOKEN: ${AGENT_INTERNAL_TOKEN:?AGENT_INTERNAL_TOKEN is required}
+      AGENT_DATABASE_PATH: /app/data/agent_runs.db
+      AGENT_CHECKPOINT_PATH: /app/data/checkpoints.db
+      AGENT_EVIDENCE_SOURCE_PATH: /app/resources/literature/TCM_Supramolecular_Literature_Search_EN_v3_filled.xlsx
+      AGENT_EVIDENCE_DATABASE_PATH: /app/data/evidence.db
+      AGENT_EVIDENCE_TOP_K: ${AGENT_EVIDENCE_TOP_K:-10}
+      AGENT_WORKER_COUNT: ${AGENT_WORKER_COUNT:-2}
+      AGENT_LLM_MODE: ${AGENT_LLM_MODE:-optional}
+      AGENT_LLM_PROXY_URL: ${AGENT_LLM_PROXY_URL:-http://host.docker.internal:8080/internal/v1/llm/chat}
+      AGENT_LLM_TIMEOUT_SECONDS: ${AGENT_LLM_TIMEOUT_SECONDS:-30}
+      AGENT_LLM_STREAM_MODE: ${AGENT_LLM_STREAM_MODE:-optional}
+      AGENT_KNOWLEDGE_API_URL: ${AGENT_KNOWLEDGE_API_URL:-http://host.docker.internal:8080/internal/v1/knowledge/search}
+      AGENT_KNOWLEDGE_TIMEOUT_SECONDS: ${AGENT_KNOWLEDGE_TIMEOUT_SECONDS:-10}
+      AGENT_CHAT_MAX_AGENT_ROUNDS: ${AGENT_CHAT_MAX_AGENT_ROUNDS:-8}
+      AGENT_CHAT_MAX_TOOL_CALLS: ${AGENT_CHAT_MAX_TOOL_CALLS:-12}
+      AGENT_CHAT_EVENT_PAYLOAD_CHARS: ${AGENT_CHAT_EVENT_PAYLOAD_CHARS:-4000}
+      AGENT_CANONICAL_DATABASE_PATH: /app/data/canonical_knowledge.db
+      AGENT_VECTOR_MODE: ${AGENT_VECTOR_MODE:-disabled}
+      AGENT_QDRANT_URL: http://qdrant:6333
+      AGENT_QDRANT_COLLECTION_ALIAS: ${AGENT_QDRANT_COLLECTION_ALIAS:-medical_evidence_active}
+      AGENT_SUPRAMOLECULAR_COLLECTION: ${AGENT_SUPRAMOLECULAR_COLLECTION:-supramolecular_experiments_active}
+      AGENT_EMBEDDING_PROVIDER: sentence_transformers
+      AGENT_EMBEDDING_MODEL: intfloat/multilingual-e5-small
+      AGENT_EMBEDDING_REVISION: 614241f622f53c4eeff9890bdc4f31cfecc418b3
+      AGENT_EMBEDDING_DIMENSION: 384
+      AGENT_EMBEDDING_NORMALIZE: "true"
+      AGENT_EMBEDDING_DEVICE: cpu
+      AGENT_EMBEDDING_MAX_SEQ_LENGTH: 512
+      AGENT_EMBEDDING_BATCH_SIZE: 16
+      AGENT_CHUNK_TOKEN_BUDGET: 480
+      AGENT_CHUNK_TOKEN_OVERLAP: 64
+      HF_HOME: /app/.cache/huggingface
+    ports:
+      - "127.0.0.1:8090:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - agent_data:/app/data
+      - hf_cache:/app/.cache/huggingface
+    networks:
+      - default
+      - vector_private
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
 volumes:
   mysql_data:
   redis_data:
   meili_data:
+  agent_data:
+  hf_cache:
+  qdrant_data:
+  rocketmq_namesrv_logs:
+  rocketmq_broker_logs:
+  rocketmq_broker_store:
+
+networks:
+  vector_private:
+    driver: bridge

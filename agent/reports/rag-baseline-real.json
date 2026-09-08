@@ -1,0 +1,415 @@
+{
+  "report_version": "rag-benchmark-v1",
+  "dataset_id": "tcm-literature-seed-v1",
+  "dataset_sha256": "a9d60d5c283da5e75d2a649a70ac79851148da4b9c7d292c49c7b84cdc4c5576",
+  "weak_label_warning": "当前 seed 含 weak/synthetic 标签，指标仅用于管线基线，不是最终质量结论。",
+  "model_fingerprint": "sentence_transformers:intfloat/multilingual-e5-small@614241f622f53c4eeff9890bdc4f31cfecc418b3:d384:l2",
+  "collection_alias": "medical_evidence_active",
+  "collection_generation": "20260809054053",
+  "parameters": {
+    "top_k": 10,
+    "lexical_candidate_limit": 100,
+    "vector_candidate_limit": 100,
+    "rrf_k": 60,
+    "chunk_budget": 480,
+    "chunk_overlap": 64,
+    "chunk_parameter_interpretation": "not-applicable: structured rows are equivalent single chunks"
+  },
+  "random_seed": 20260809,
+  "modes": {
+    "lexical": {
+      "status": "completed",
+      "metrics": {
+        "recall@1": 1.0,
+        "recall@3": 1.0,
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "precision@1": 1.0,
+        "precision@3": 0.3333333333333333,
+        "precision@5": 0.20000000000000004,
+        "precision@10": 0.10000000000000002,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "irrelevant_rate@10": 0.016666666666666666,
+        "broken_lineage_rate": 0.0,
+        "latency_avg_ms": 1.6832566658801322,
+        "latency_p95_ms": 2.6922500001091976
+      },
+      "per_query": {
+        "weak-licorice-diabetic-wound": {
+          "evidence_ids": [
+            "literature:EN:2",
+            "literature:EN:118",
+            "literature:EN:98",
+            "literature:EN:43",
+            "literature:EN:42",
+            "literature:EN:91",
+            "literature:EN:126",
+            "literature:EN:25",
+            "literature:EN:59",
+            "literature:EN:128"
+          ],
+          "latency_ms": 2.6922500001091976,
+          "broken_lineage": 0,
+          "diagnostics": {}
+        },
+        "weak-dahuang-huanglian-library": {
+          "evidence_ids": [
+            "literature:EN:3",
+            "literature:EN:64",
+            "literature:EN:115",
+            "literature:EN:70",
+            "literature:EN:23",
+            "literature:EN:73",
+            "literature:EN:2",
+            "literature:EN:32",
+            "literature:EN:12",
+            "literature:EN:130"
+          ],
+          "latency_ms": 1.5814159996807575,
+          "broken_lineage": 0,
+          "diagnostics": {}
+        },
+        "weak-alpha-hederin-hydrogel": {
+          "evidence_ids": [
+            "literature:EN:4",
+            "literature:EN:91",
+            "literature:EN:121",
+            "literature:EN:5",
+            "literature:EN:42",
+            "literature:EN:111",
+            "literature:EN:115",
+            "literature:EN:50",
+            "literature:EN:65",
+            "literature:EN:117"
+          ],
+          "latency_ms": 1.4690409989270847,
+          "broken_lineage": 0,
+          "diagnostics": {}
+        },
+        "weak-mxsgd-antipyretic": {
+          "evidence_ids": [
+            "literature:EN:5",
+            "literature:EN:99",
+            "literature:EN:50",
+            "literature:EN:102",
+            "literature:EN:4",
+            "literature:EN:129",
+            "literature:EN:42",
+            "literature:EN:3",
+            "literature:EN:101",
+            "literature:EN:29"
+          ],
+          "latency_ms": 1.5131660002225544,
+          "broken_lineage": 0,
+          "diagnostics": {}
+        },
+        "weak-metal-coassembly": {
+          "evidence_ids": [
+            "literature:EN:6",
+            "literature:EN:48",
+            "literature:EN:111",
+            "literature:EN:25",
+            "literature:EN:79",
+            "literature:EN:89",
+            "literature:EN:120",
+            "literature:EN:51",
+            "literature:EN:102",
+            "literature:EN:54"
+          ],
+          "latency_ms": 1.4838329989288468,
+          "broken_lineage": 0,
+          "diagnostics": {}
+        },
+        "weak-berberine-strawberry": {
+          "evidence_ids": [
+            "literature:EN:9",
+            "literature:EN:16",
+            "literature:EN:64",
+            "literature:EN:43",
+            "literature:EN:6",
+            "literature:EN:84",
+            "literature:EN:41",
+            "literature:EN:79",
+            "literature:EN:55",
+            "literature:EN:80"
+          ],
+          "latency_ms": 1.359833997412352,
+          "broken_lineage": 0,
+          "diagnostics": {}
+        }
+      },
+      "reason": null
+    },
+    "vector": {
+      "status": "completed",
+      "metrics": {
+        "recall@1": 0.8333333333333334,
+        "recall@3": 0.8333333333333334,
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "precision@1": 0.8333333333333334,
+        "precision@3": 0.27777777777777773,
+        "precision@5": 0.20000000000000004,
+        "precision@10": 0.10000000000000002,
+        "mrr@10": 0.8666666666666667,
+        "ndcg@10": 0.8978088012057569,
+        "irrelevant_rate@10": 0.016666666666666666,
+        "broken_lineage_rate": 0.0,
+        "latency_avg_ms": 2456.3012570009355,
+        "latency_p95_ms": 14659.532749999926
+      },
+      "per_query": {
+        "weak-licorice-diabetic-wound": {
+          "evidence_ids": [
+            "literature:EN:2",
+            "literature:EN:57",
+            "literature:EN:126",
+            "literature:EN:51",
+            "literature:EN:91",
+            "literature:EN:125",
+            "literature:EN:28",
+            "literature:EN:86",
+            "literature:EN:47",
+            "literature:EN:128"
+          ],
+          "latency_ms": 14659.532749999926,
+          "broken_lineage": 0,
+          "diagnostics": {}
+        },
+        "weak-dahuang-huanglian-library": {
+          "evidence_ids": [
+            "literature:EN:3",
+            "literature:EN:64",
+            "literature:EN:106",
+            "literature:EN:37",
+            "literature:EN:132",
+            "literature:EN:56",
+            "literature:EN:22",
+            "literature:EN:130",
+            "literature:EN:12",
+            "literature:EN:111"
+          ],
+          "latency_ms": 17.07024999996065,
+          "broken_lineage": 0,
+          "diagnostics": {}
+        },
+        "weak-alpha-hederin-hydrogel": {
+          "evidence_ids": [
+            "literature:EN:4",
+            "literature:EN:126",
+            "literature:EN:117",
+            "literature:EN:115",
+            "literature:EN:78",
+            "literature:EN:5",
+            "literature:EN:131",
+            "literature:EN:34",
+            "literature:EN:79",
+            "literature:EN:56"
+          ],
+          "latency_ms": 15.749542002595263,
+          "broken_lineage": 0,
+          "diagnostics": {}
+        },
+        "weak-mxsgd-antipyretic": {
+          "evidence_ids": [
+            "literature:EN:5",
+            "literature:EN:40",
+            "literature:EN:116",
+            "literature:EN:15",
+            "literature:EN:48",
+            "literature:EN:70",
+            "literature:EN:4",
+            "literature:EN:80",
+            "literature:EN:99",
+            "literature:EN:25"
+          ],
+          "latency_ms": 15.766583001095569,
+          "broken_lineage": 0,
+          "diagnostics": {}
+        },
+        "weak-metal-coassembly": {
+          "evidence_ids": [
+            "literature:EN:54",
+            "literature:EN:95",
+            "literature:EN:125",
+            "literature:EN:94",
+            "literature:EN:6",
+            "literature:EN:86",
+            "literature:EN:97",
+            "literature:EN:79",
+            "literature:EN:46",
+            "literature:EN:121"
+          ],
+          "latency_ms": 15.082458001415944,
+          "broken_lineage": 0,
+          "diagnostics": {}
+        },
+        "weak-berberine-strawberry": {
+          "evidence_ids": [
+            "literature:EN:9",
+            "literature:EN:16",
+            "literature:EN:60",
+            "literature:EN:64",
+            "literature:EN:125",
+            "literature:EN:43",
+            "literature:EN:80",
+            "literature:EN:126",
+            "literature:EN:32",
+            "literature:EN:54"
+          ],
+          "latency_ms": 14.605959000618896,
+          "broken_lineage": 0,
+          "diagnostics": {}
+        }
+      },
+      "reason": null
+    },
+    "hybrid_rrf": {
+      "status": "completed",
+      "metrics": {
+        "recall@1": 1.0,
+        "recall@3": 1.0,
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "precision@1": 1.0,
+        "precision@3": 0.3333333333333333,
+        "precision@5": 0.20000000000000004,
+        "precision@10": 0.10000000000000002,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "irrelevant_rate@10": 0.016666666666666666,
+        "broken_lineage_rate": 0.0,
+        "latency_avg_ms": 14.654222166427644,
+        "latency_p95_ms": 20.404165999934776
+      },
+      "per_query": {
+        "weak-licorice-diabetic-wound": {
+          "evidence_ids": [
+            "literature:EN:2",
+            "literature:EN:126",
+            "literature:EN:91",
+            "literature:EN:128",
+            "literature:EN:125",
+            "literature:EN:57",
+            "literature:EN:89",
+            "literature:EN:59",
+            "literature:EN:42",
+            "literature:EN:118"
+          ],
+          "latency_ms": 20.404165999934776,
+          "broken_lineage": 0,
+          "diagnostics": {
+            "degraded": false
+          }
+        },
+        "weak-dahuang-huanglian-library": {
+          "evidence_ids": [
+            "literature:EN:3",
+            "literature:EN:64",
+            "literature:EN:115",
+            "literature:EN:37",
+            "literature:EN:130",
+            "literature:EN:12",
+            "literature:EN:132",
+            "literature:EN:23",
+            "literature:EN:32",
+            "literature:EN:56"
+          ],
+          "latency_ms": 13.273166998260422,
+          "broken_lineage": 0,
+          "diagnostics": {
+            "degraded": false
+          }
+        },
+        "weak-alpha-hederin-hydrogel": {
+          "evidence_ids": [
+            "literature:EN:4",
+            "literature:EN:5",
+            "literature:EN:115",
+            "literature:EN:117",
+            "literature:EN:42",
+            "literature:EN:111",
+            "literature:EN:78",
+            "literature:EN:91",
+            "literature:EN:34",
+            "literature:EN:131"
+          ],
+          "latency_ms": 13.257750000775559,
+          "broken_lineage": 0,
+          "diagnostics": {
+            "degraded": false
+          }
+        },
+        "weak-mxsgd-antipyretic": {
+          "evidence_ids": [
+            "literature:EN:5",
+            "literature:EN:99",
+            "literature:EN:4",
+            "literature:EN:80",
+            "literature:EN:70",
+            "literature:EN:21",
+            "literature:EN:102",
+            "literature:EN:29",
+            "literature:EN:104",
+            "literature:EN:42"
+          ],
+          "latency_ms": 14.244707999750972,
+          "broken_lineage": 0,
+          "diagnostics": {
+            "degraded": false
+          }
+        },
+        "weak-metal-coassembly": {
+          "evidence_ids": [
+            "literature:EN:6",
+            "literature:EN:54",
+            "literature:EN:79",
+            "literature:EN:51",
+            "literature:EN:89",
+            "literature:EN:60",
+            "literature:EN:41",
+            "literature:EN:95",
+            "literature:EN:120",
+            "literature:EN:125"
+          ],
+          "latency_ms": 13.54462500239606,
+          "broken_lineage": 0,
+          "diagnostics": {
+            "degraded": false
+          }
+        },
+        "weak-berberine-strawberry": {
+          "evidence_ids": [
+            "literature:EN:9",
+            "literature:EN:16",
+            "literature:EN:64",
+            "literature:EN:43",
+            "literature:EN:60",
+            "literature:EN:80",
+            "literature:EN:126",
+            "literature:EN:6",
+            "literature:EN:125",
+            "literature:EN:53"
+          ],
+          "latency_ms": 13.200916997448076,
+          "broken_lineage": 0,
+          "diagnostics": {
+            "degraded": false
+          }
+        }
+      },
+      "reason": null
+    },
+    "hybrid_reranker": {
+      "status": "not_run",
+      "metrics": {},
+      "per_query": {},
+      "reason": "real reranker provider is disabled; no score was fabricated"
+    }
+  },
+  "candidate_models": {
+    "BAAI/bge-m3": "not_run",
+    "BAAI/bge-reranker-v2-m3": "not_run"
+  }
+}

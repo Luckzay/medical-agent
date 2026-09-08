@@ -1,0 +1,86 @@
+{
+  "fixture_version": "managed-vector-eval-v1",
+  "lexical": {
+    "cases": 7,
+    "passed": 7,
+    "pass_rate": 1.0
+  },
+  "candidate_hybrid": {
+    "enabled": false,
+    "reason": "production embedding model not evaluated; deterministic test embedding is non-semantic"
+  },
+  "cases": [
+    {
+      "id": "herb-en",
+      "kind": "herb",
+      "hits": 10,
+      "top_ids": [
+        "EN:102",
+        "EN:108",
+        "EN:107",
+        "EN:6",
+        "EN:51",
+        "EN:91",
+        "EN:28",
+        "EN:41",
+        "EN:112",
+        "EN:23"
+      ],
+      "passed": true
+    },
+    {
+      "id": "herb-zh",
+      "kind": "multilingual-semantic",
+      "hits": 0,
+      "top_ids": [],
+      "passed": true
+    },
+    {
+      "id": "compound",
+      "kind": "compound",
+      "hits": 10,
+      "top_ids": [
+        "EN:50",
+        "EN:91",
+        "EN:100",
+        "EN:94",
+        "EN:95",
+        "EN:86",
+        "EN:121",
+        "EN:47",
+        "EN:51",
+        "EN:97"
+      ],
+      "passed": true
+    },
+    {
+      "id": "smiles",
+      "kind": "smiles",
+      "hits": 0,
+      "top_ids": [],
+      "passed": true
+    },
+    {
+      "id": "irrelevant",
+      "kind": "irrelevant-near-match",
+      "hits": 0,
+      "top_ids": [],
+      "passed": true
+    },
+    {
+      "id": "deleted",
+      "kind": "deletion",
+      "hits": 0,
+      "top_ids": [],
+      "passed": true
+    },
+    {
+      "id": "permission",
+      "kind": "permission-boundary",
+      "hits": 0,
+      "top_ids": [],
+      "passed": true
+    }
+  ],
+  "rollout_gate_passed": false
+}

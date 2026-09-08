@@ -40,9 +40,7 @@ func (s *DecoctionService) List(page, pageSize int, keyword string) ([]model.Dec
 
 type DecoctionDetail struct {
 	*model.DecoctionBasic
-	Compounds      []model.DecoctionCompound      `json:"compounds"`
 	ToxicCompounds []model.DecoctionToxicCompound `json:"toxic_compounds"`
-	Meta           []model.DecoctionMeta          `json:"meta"`
 }
 
 func (s *DecoctionService) GetDetail(id int) (*DecoctionDetail, error) {
@@ -58,10 +56,8 @@ func (s *DecoctionService) GetDetail(id int) (*DecoctionDetail, error) {
 	if err != nil {
 		return nil, err
 	}
-	compounds, _ := s.repo.GetCompounds(id)
 	toxic, _ := s.repo.GetToxicCompounds(id)
-	meta, _ := s.repo.GetMeta(id)
-	detail := &DecoctionDetail{DecoctionBasic: d, Compounds: compounds, ToxicCompounds: toxic, Meta: meta}
+	detail := &DecoctionDetail{DecoctionBasic: d, ToxicCompounds: toxic}
 	cache.Set(ctx, cacheKey, detail, 10*time.Minute)
 	return detail, nil
 }

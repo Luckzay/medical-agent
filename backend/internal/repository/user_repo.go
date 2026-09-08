@@ -47,6 +47,10 @@ func (r *UserRepo) Update(user *model.User) error {
 	return r.db.Omit("created_at", "updated_at").Save(user).Error
 }
 
+func (r *UserRepo) UpdateStatus(id int, status string) error {
+	return r.db.Model(&model.User{}).Where("id = ?", id).Update("status", status).Error
+}
+
 func (r *UserRepo) Delete(id int) error {
 	return r.db.Delete(&model.User{}, id).Error
 }

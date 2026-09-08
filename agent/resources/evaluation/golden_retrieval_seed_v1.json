@@ -1,0 +1,75 @@
+{
+  "schema_version": "golden-retrieval-v1",
+  "dataset_id": "tcm-literature-seed-v1",
+  "corpus_fingerprint": "sha256:040e504414beaa2fca3c4b8c49c4007bc6a4ca857cf8d105c5c723f4b02fd5fd;rows=131",
+  "created_at": "2026-08-09T17:32:00+08:00",
+  "description": "Small bilingual seed derived from exact row metadata. All labels are weak and require expert review before quality gating.",
+  "queries": [
+    {
+      "query_id": "weak-licorice-diabetic-wound",
+      "query_zh": "甘草酸 超分子凝胶乳液 糖尿病伤口愈合",
+      "query_en": "glycyrrhizic acid supramolecular gel emulsion diabetic wound healing",
+      "research_goal": "Find direct evidence for a glycyrrhizic-acid gel emulsion used in diabetic wound healing.",
+      "scope": {"tenant_id": "default", "project_id": "literature"},
+      "relevant_evidence": [{"evidence_id": "literature:EN:2", "grade": 3}],
+      "hard_negatives": ["literature:EN:7", "literature:EN:10"],
+      "tags": ["weak-seed", "herb", "disease", "bilingual"],
+      "provenance": {"label_type": "weak", "method": "exact title and structured-field derivation", "annotator": "seed-generator-v1", "annotated_at": "2026-08-09T17:32:00+08:00", "notes": "Not human adjudicated."}
+    },
+    {
+      "query_id": "weak-dahuang-huanglian-library",
+      "query_zh": "大黄 黄连 小分子 无载体 自组装 文库",
+      "query_en": "rhubarb coptis carrier-free small molecule self-assembly library",
+      "research_goal": "Locate the carrier-free self-assembly library from the Dahuang-Huanglian herb pair.",
+      "scope": {"tenant_id": "default", "project_id": "literature"},
+      "relevant_evidence": [{"evidence_id": "literature:EN:3", "grade": 3}],
+      "hard_negatives": ["literature:EN:4", "literature:EN:12"],
+      "tags": ["weak-seed", "herb-pair", "carrier-free", "bilingual"],
+      "provenance": {"label_type": "weak", "method": "exact title and structured-field derivation", "annotator": "seed-generator-v1", "annotated_at": "2026-08-09T17:32:00+08:00", "notes": "Not human adjudicated."}
+    },
+    {
+      "query_id": "weak-alpha-hederin-hydrogel",
+      "query_zh": "白头翁皂苷 alpha-hederin 超分子水凝胶 抗炎",
+      "query_en": "alpha-hederin triterpenoid saponin supramolecular hydrogel anti-inflammatory",
+      "research_goal": "Find preparation and anti-inflammatory evaluation of an alpha-hederin hydrogel.",
+      "scope": {"tenant_id": "default", "project_id": "literature"},
+      "relevant_evidence": [{"evidence_id": "literature:EN:4", "grade": 3}],
+      "hard_negatives": ["literature:EN:2", "literature:EN:9"],
+      "tags": ["weak-seed", "compound", "hydrogel", "bilingual"],
+      "provenance": {"label_type": "weak", "method": "exact title and structured-field derivation", "annotator": "seed-generator-v1", "annotated_at": "2026-08-09T17:32:00+08:00", "notes": "Not human adjudicated."}
+    },
+    {
+      "query_id": "weak-mxsgd-antipyretic",
+      "query_zh": "麻杏石甘汤 多组分 无载体 水凝胶 解热 抗炎 MAPK NF-kB",
+      "query_en": "Ma-Xing-Shi-Gan decoction carrier-free hydrogel antipyretic anti-inflammatory MAPK NF-kB",
+      "research_goal": "Identify the MXSGD hydrogel with antipyretic and anti-inflammatory effects.",
+      "scope": {"tenant_id": "default", "project_id": "literature"},
+      "relevant_evidence": [{"evidence_id": "literature:EN:5", "grade": 3}],
+      "hard_negatives": ["literature:EN:8", "literature:EN:11"],
+      "tags": ["weak-seed", "formula", "mechanism", "bilingual"],
+      "provenance": {"label_type": "weak", "method": "exact title and structured-field derivation", "annotator": "seed-generator-v1", "annotated_at": "2026-08-09T17:32:00+08:00", "notes": "Not human adjudicated."}
+    },
+    {
+      "query_id": "weak-metal-coassembly",
+      "query_zh": "甘草酸 大黄酸 金属离子 共组装 分级纳米纤维 水凝胶",
+      "query_en": "glycyrrhizic acid rhein metal ion co-assembly hierarchical nanofibrillar hydrogel",
+      "research_goal": "Find metal-ion-mediated co-assembly of licorice and rhubarb molecules.",
+      "scope": {"tenant_id": "default", "project_id": "literature"},
+      "relevant_evidence": [{"evidence_id": "literature:EN:6", "grade": 3}],
+      "hard_negatives": ["literature:EN:3", "literature:EN:7"],
+      "tags": ["weak-seed", "metal-ion", "co-assembly", "bilingual"],
+      "provenance": {"label_type": "weak", "method": "exact title and structured-field derivation", "annotator": "seed-generator-v1", "annotated_at": "2026-08-09T17:32:00+08:00", "notes": "Not human adjudicated."}
+    },
+    {
+      "query_id": "weak-berberine-strawberry",
+      "query_zh": "小檗碱 草本共组装 水凝胶 草莓 采前 保鲜",
+      "query_en": "berberine co-assembled herbal hydrogel pre-harvest strawberry shelf life",
+      "research_goal": "Locate the berberine-integrated herbal hydrogel for strawberry preservation.",
+      "scope": {"tenant_id": "default", "project_id": "literature"},
+      "relevant_evidence": [{"evidence_id": "literature:EN:9", "grade": 3}],
+      "hard_negatives": ["literature:EN:2", "literature:EN:12"],
+      "tags": ["weak-seed", "berberine", "agriculture", "bilingual"],
+      "provenance": {"label_type": "weak", "method": "exact title and structured-field derivation", "annotator": "seed-generator-v1", "annotated_at": "2026-08-09T17:32:00+08:00", "notes": "Not human adjudicated."}
+    }
+  ]
+}

@@ -1,16 +1,18 @@
-import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Menu, Button, Dropdown } from 'antd';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Button, Dropdown, Menu } from 'antd';
 import {
-  HomeOutlined,
-  ExperimentOutlined,
-  MedicineBoxOutlined,
+  BookOutlined,
   ClusterOutlined,
+  ExperimentOutlined,
   FileTextOutlined,
-  TeamOutlined,
-  UserOutlined,
-  ReadOutlined,
+  HomeOutlined,
   LogoutOutlined,
+  MedicineBoxOutlined,
   MenuOutlined,
+  RobotOutlined,
+  SettingOutlined,
+  SolutionOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 import { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
@@ -22,8 +24,9 @@ const navItems = [
   { key: '/couplets', icon: <ClusterOutlined />, label: '药对' },
   { key: '/decoctions', icon: <MedicineBoxOutlined />, label: '方剂' },
   { key: '/compounds', icon: <FileTextOutlined />, label: '化合物' },
-  { key: '/expertises', icon: <TeamOutlined />, label: '专家经验' },
-  { key: '/papers', icon: <ReadOutlined />, label: '文献' },
+  { key: '/cases', icon: <SolutionOutlined />, label: '无效/加重医案' },
+  { key: '/clauses', icon: <BookOutlined />, label: '无效/加重条文' },
+  { key: '/agent', icon: <RobotOutlined />, label: 'Agent 工作台' },
 ];
 
 export default function Layout() {
@@ -32,12 +35,14 @@ export default function Layout() {
   const { user, isAuthenticated, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const selectedKey = '/' + (location.pathname.split('/')[1] || '');
+  const selectedKey = `/${  location.pathname.split('/')[1] || ''}`;
+  const isAgentWorkspace = selectedKey === '/agent';
 
   const userMenuItems = isAuthenticated
     ? [
         ...(user?.role === 'admin'
           ? [{ key: 'users', icon: <UserOutlined />, label: '用户管理', onClick: () => navigate('/users') },
+             { key: 'llm-config', icon: <SettingOutlined />, label: 'LLM 配置', onClick: () => navigate('/config/llm') },
              { type: 'divider' as const }]
           : []),
         { key: 'logout', icon: <LogoutOutlined />, label: '退出登录', onClick: logout },
@@ -78,7 +83,7 @@ export default function Layout() {
         </nav>
       </header>
 
-      {mobileOpen && (
+      {mobileOpen ? (
         <div className={styles.mobileMenu}>
           <Menu
             mode="vertical"
@@ -88,15 +93,53 @@ export default function Layout() {
             style={{ border: 'none' }}
           />
         </div>
-      )}
+      ) : null}
 
-      <main className={styles.main}>
+      <main className={`${styles.main} ${isAgentWorkspace ? styles.agentMain : ''}`}>
         <Outlet />
       </main>
 
-      <footer className={styles.footer}>
-        中药毒理与循证数据库平台 &copy; {new Date().getFullYear()}
-      </footer>
+      {!isAgentWorkspace && (
+        <footer className={styles.footer}>
+          <div className={styles.footerContent}>
+            <section className={styles.footerColumn} aria-labelledby="footer-about-title">
+              <h2 id="footer-about-title" className={styles.footerTitle}>关于平台</h2>
+              <span className={styles.footerTitleAccent} />
+              <Link className={styles.footerLink} to="/">平台介绍</Link>
+            </section>
+
+            <section className={styles.footerColumn} aria-labelledby="footer-services-title">
+              <h2 id="footer-services-title" className={styles.footerTitle}>服务支持</h2>
+              <span className={styles.footerTitleAccent} />
+              <nav className={styles.footerLinks} aria-label="服务支持">
+                <Link className={styles.footerLink} to="/compounds">毒性化合物</Link>
+                <Link className={styles.footerLink} to="/herbs">毒性中药</Link>
+                <Link className={styles.footerLink} to="/couplets">毒性药对</Link>
+                <Link className={styles.footerLink} to="/decoctions">毒性方剂</Link>
+                <Link className={styles.footerLink} to="/cases">治疗无效/加重的医案</Link>
+                <Link className={styles.footerLink} to="/clauses">治疗无效/加重的条文及论述</Link>
+              </nav>
+            </section>
+
+            <section className={styles.footerColumn} aria-labelledby="footer-contact-title">
+              <h2 id="footer-contact-title" className={styles.footerTitle}>联系我们</h2>
+              <span className={styles.footerTitleAccent} />
+              <address className={styles.contactList}>
+                <span>地址：北京市朝阳区北三环东路11号</span>
+                <span>电话：010-53911430</span>
+                <span>邮箱：{'cyh@bucm.edu.cn'}</span>
+              </address>
+            </section>
+          </div>
+
+          <div className={styles.footerBottom}>
+            <div>© 2025 中药毒理与循证数据库 版权所有 <span className={styles.separator}>|</span> 京ICP备2025140844号</div>
+            <div className={styles.citation}>
+              推荐引用：陈俞含，马天伊，刘兆兰，张思苒，袁孟泽，孙光卉. 中药毒理与循证平台 V1.0 （计算机软件）[CP]. 2025.
+            </div>
+          </div>
+        </footer>
+      )}
     </div>
   );
 }

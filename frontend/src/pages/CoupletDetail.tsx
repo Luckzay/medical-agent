@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Typography, Descriptions, Table, Button, Spin, Tag } from 'antd';
+import { Typography, Descriptions, Button, Spin, Tag } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import type { CoupletDetail } from '../types';
 import { getCoupletDetail } from '../services/api';
 import Section from '../components/Section';
+import ToxicCompoundTable from '../components/ToxicCompoundTable';
 import styles from './DetailPage.module.css';
 
 const { Title } = Typography;
@@ -35,7 +36,7 @@ export default function CoupletDetailPage() {
         labelStyle={{ background: '#fafafa', fontWeight: 600, width: 140 }}>
         <Descriptions.Item label="拼音">{data.herb_couplet_name_pinyin}</Descriptions.Item>
         <Descriptions.Item label="毒性">
-          {data.virulence && <Tag color="error" className={styles.virulenceTag}>{data.virulence}</Tag>}
+          {data.virulence ? <Tag color="error" className={styles.virulenceTag}>{data.virulence}</Tag> : null}
         </Descriptions.Item>
       </Descriptions>
 
@@ -49,17 +50,7 @@ export default function CoupletDetailPage() {
       <Section title="ADR典型案例" text={data.typical_cases_of_adr} />
       <Section title="临床建议" text={data.clinical_suggestion} basis={data.clinical_suggestion_basis} link={data.link_to_clinical_suggestion} />
 
-      <div className={styles.subSection}>
-        <Title level={4} className={styles.subTitle}>关联毒性化合物</Title>
-        <Table columns={[
-          { title: '名称', dataIndex: 'compound_name', key: 'name' },
-          { title: '类型', dataIndex: 'compound_type', key: 'type', width: 120 },
-          { title: '分子式', dataIndex: 'molecular_formula', key: 'formula', width: 160 },
-          { title: 'CAS', dataIndex: 'cas', key: 'cas', width: 140 },
-          { title: '操作', key: 'action', width: 80,
-            render: (_: any, r: any) => <a onClick={() => navigate(`/compounds/${r.record_number}`)}>详情</a> },
-        ]} dataSource={data.toxic_compounds} rowKey="id" pagination={false} size="small" className={styles.subTable} />
-      </div>
+      <ToxicCompoundTable compounds={data.toxic_compounds} />
     </div>
   );
 }

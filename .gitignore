@@ -1,8 +1,11 @@
-# 敏感配置
+# Sensitive configuration
 .env
+.env.*
+!.env.example
+!**/.env.example
 .agents/secret.md
 
-# IDE
+# IDE / editor
 .idea/
 .vscode/
 *.swp
@@ -12,18 +15,50 @@
 .DS_Store
 Thumbs.db
 
-# Go
+# Node / frontend
+node_modules/
+dist/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Go / backend
 backend/gen/
 backend/tmp/
+backend/bin/
+backend/server
+*.exe
+*.test
+*.out
+coverage.out
 
-# Node
-frontend/node_modules/
-frontend/dist/
+# Python / agent
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+agent/data/
+agent/MagicMock/
 
-# Python
-agent/__pycache__/
-agent/.venv/
-agent/venv/
+# Build and release artifacts
+release/
+build/
+coverage/
 
-# Docker
+# Docker local overrides
 docker-compose.override.yml
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+.cache/
