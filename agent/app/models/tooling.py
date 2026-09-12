@@ -2,19 +2,9 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Literal, TypeVar
+from typing import Any, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field
-
-from app.models.evidence import LiteratureSearchHit, LiteratureSearchInput
-from app.models.proposal import ExperimentProposal
-from app.models.run import (
-    CandidateScore,
-    ClaimEvidence,
-    CompoundResult,
-    Evidence,
-    MolecularDescriptors,
-)
 
 InputT = TypeVar("InputT", bound=BaseModel)
 OutputT = TypeVar("OutputT", bound=BaseModel)
@@ -100,100 +90,11 @@ class NormalizeHerbsOutput(BaseModel):
     normalized_herbs: list[str]
 
 
-class DiscoveredCompoundModel(BaseModel):
-    model_config = ConfigDict(extra="forbid", strict=True)
-
-    compound_id: str
-    name: str
-    herb: str
-    smiles: str
-    pubchem_cid: int | None = None
-    evidence_ids: list[str]
-
-
-class DiscoverCompoundsInput(BaseModel):
-    model_config = ConfigDict(extra="forbid", strict=True)
-
-    normalized_herbs: list[str] = Field(min_length=1)
-
-
-class DiscoverCompoundsOutput(BaseModel):
-    model_config = ConfigDict(extra="forbid", strict=True)
-
-    compounds: list[DiscoveredCompoundModel]
-    evidence: list[Evidence]
-    unresolved_herbs: list[str]
-    online_failures: int = Field(ge=0)
-
-
-class DescriptorRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid", strict=True)
-
-    compound: DiscoveredCompoundModel
-
-
-class CalculateDescriptorsInput(BaseModel):
-    model_config = ConfigDict(extra="forbid", strict=True)
-
-    compounds: list[DiscoveredCompoundModel] = Field(min_length=1)
-
-
-class DescribedCompound(BaseModel):
-    model_config = ConfigDict(extra="forbid", strict=True)
-
-    compound: DiscoveredCompoundModel
-    descriptors: MolecularDescriptors
-
-
-class CalculateDescriptorsOutput(BaseModel):
-    model_config = ConfigDict(extra="forbid", strict=True)
-
-    compounds: list[DescribedCompound]
-
-
-class ScoreCandidatesInput(BaseModel):
-    model_config = ConfigDict(extra="forbid", strict=True)
-
-    compounds: list[DescribedCompound] = Field(min_length=1)
-
-
-class ScoredCompound(BaseModel):
-    model_config = ConfigDict(extra="forbid", strict=True)
-
-    compound: DiscoveredCompoundModel
-    descriptors: MolecularDescriptors
-    candidate_score: CandidateScore
-
-
-class ScoreCandidatesOutput(BaseModel):
-    model_config = ConfigDict(extra="forbid", strict=True)
-
-    compounds: list[ScoredCompound]
-
-
-class SearchLiteratureInput(LiteratureSearchInput):
-    pass
-
-
-class SearchLiteratureOutput(BaseModel):
-    model_config = ConfigDict(extra="forbid", strict=True)
-
-    hits: list[LiteratureSearchHit]
-    total_candidates: int = Field(ge=0)
-    source_sha256: str
-    degraded: bool = False
-    retrieval_mode: Literal["lexical", "hybrid", "hybrid_reranker"] = "lexical"
-    diagnostics: list[dict[str, Any]] = Field(default_factory=list)
-    degraded_reason: str | None = None
-
-
 class SearchMedicalKnowledgeInput(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
     query: str = Field(min_length=1, max_length=200)
-    types: list[
-        Literal["herbs", "decoctions", "couplets", "compounds", "papers", "expertises"]
-    ] = Field(default_factory=list, max_length=6)
+    types: list[str] = Field(default_factory=list, max_length=6)
     limit: int = Field(default=10, ge=1, le=50)
 
 
@@ -201,19 +102,3 @@ class SearchMedicalKnowledgeOutput(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     results: list[dict[str, Any]] = Field(default_factory=list)
-
-
-class GenerateExperimentProposalInput(BaseModel):
-    model_config = ConfigDict(extra="forbid", strict=True)
-
-    compounds: list[CompoundResult] = Field(min_length=1)
-    claims: list[ClaimEvidence] = Field(default_factory=list)
-    evidence: list[Evidence] = Field(min_length=1)
-    max_conditions: int = Field(default=12, ge=1, le=100)
-
-
-class ReviewExperimentProposalInput(BaseModel):
-    model_config = ConfigDict(extra="forbid", strict=True)
-
-    proposal: ExperimentProposal
-    available_evidence_ids: list[str] = Field(min_length=1)

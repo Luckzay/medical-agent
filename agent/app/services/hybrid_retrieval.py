@@ -3,10 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from time import monotonic
 
-from app.models.evidence import LiteratureSearchInput, LiteratureSearchOutput
 from app.models.knowledge import DocumentChunk, OwnershipScope, RetrievalDiagnostics
 from app.services.embeddings import EmbeddingProvider
-from app.services.evidence_store import EvidenceStore
 from app.services.knowledge_observability import metrics
 from app.services.knowledge_repository import SQLiteCanonicalRepository
 from app.services.rerankers import RequiredRerankerError, RerankerProvider, validate_scores
@@ -20,14 +18,6 @@ class RankedCandidate:
     lexical_rank: int | None = None
     vector_rank: int | None = None
     exact_fields: tuple[str, ...] = ()
-
-
-class LexicalRetrievalChannel:
-    def __init__(self, store: EvidenceStore) -> None:
-        self.store = store
-
-    def search(self, request: LiteratureSearchInput) -> LiteratureSearchOutput:
-        return self.store.search(request)
 
 
 def reciprocal_rank_fusion(
@@ -47,7 +37,8 @@ def reciprocal_rank_fusion(
             1 / (rrf_k + vector_rank) if vector_rank else 0
         )
         exact = exact_boosts.get(identifier, ())
-        score += 1.0 * bool({"doi", "smiles"}.intersection(exact))
+        if exact:
+            score += 1.0 * len(exact)
         output.append(RankedCandidate(identifier, score, lexical_rank, vector_rank, exact))
     return sorted(output, key=lambda item: (-item.score, item.identifier))
 

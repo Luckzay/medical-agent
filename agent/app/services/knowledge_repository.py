@@ -37,6 +37,10 @@ CREATE TABLE IF NOT EXISTS ingestion_jobs(job_id TEXT PRIMARY KEY,tenant_id TEXT
 CREATE TABLE IF NOT EXISTS embedding_cache(content_hash TEXT NOT NULL,embedding_fingerprint TEXT NOT NULL,dimension INTEGER NOT NULL,vector_json TEXT NOT NULL,created_at TEXT NOT NULL,PRIMARY KEY(content_hash,embedding_fingerprint));
 CREATE TABLE IF NOT EXISTS index_manifests(manifest_id TEXT PRIMARY KEY,collection_name TEXT NOT NULL UNIQUE,alias TEXT NOT NULL,generation TEXT NOT NULL,status TEXT NOT NULL,payload_json TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS legacy_evidence_mappings(evidence_id TEXT PRIMARY KEY,tenant_id TEXT NOT NULL,project_id TEXT NOT NULL,document_id TEXT NOT NULL,version_id TEXT NOT NULL,chunk_id TEXT NOT NULL,source_row INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS toxicology_snapshots(snapshot_id TEXT PRIMARY KEY, source_snapshot TEXT NOT NULL, created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS toxicology_herbs(herb_id INTEGER PRIMARY KEY, name TEXT NOT NULL, common_name TEXT, logical_source TEXT NOT NULL, reference TEXT NOT NULL, virulence TEXT, toxicity_mechanism TEXT, pathological_examination TEXT, crowd_taboo TEXT, symptom_contraindications TEXT, adr TEXT, typical_cases_of_adr TEXT, clinical_suggestion TEXT, clinical_suggestion_basis TEXT, link_to_clinical_suggestion TEXT, created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS toxicology_compounds(compound_id INTEGER PRIMARY KEY, herb_id INTEGER NOT NULL REFERENCES toxicology_herbs(herb_id), name TEXT NOT NULL, formula TEXT, cas TEXT, logical_source TEXT NOT NULL, created_at TEXT NOT NULL);
+CREATE VIRTUAL TABLE IF NOT EXISTS toxicology_fts USING fts5(herb_id UNINDEXED, name, common_name, virulence, toxicity_mechanism, pathological_examination, crowd_taboo, symptom_contraindications, adr, typical_cases_of_adr, clinical_suggestion, clinical_suggestion_basis, compound_names, cas_numbers, formulas);
 CREATE INDEX IF NOT EXISTS idx_versions_scope ON document_versions(tenant_id,project_id,document_id);
 CREATE INDEX IF NOT EXISTS idx_chunks_scope ON document_chunks(tenant_id,project_id,version_id);
 """

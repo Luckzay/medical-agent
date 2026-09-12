@@ -160,40 +160,13 @@ def test_builtin_tools_and_workflow_use_runtime_in_order(tmp_path: Any) -> None:
             run_id="builtins", node="normalize", permissions=INTERNAL_TOOL_PERMISSIONS
         ),
     )
-    discovered = runtime.execute(
-        "discover_compounds",
-        {"normalized_herbs": normalized.model_dump()["normalized_herbs"]},
-        ToolExecutionContext(
-            run_id="builtins", node="discover", permissions=INTERNAL_TOOL_PERMISSIONS
-        ),
-    )
-    described = runtime.execute(
-        "calculate_descriptors",
-        {"compounds": discovered.model_dump(mode="json")["compounds"]},
-        ToolExecutionContext(
-            run_id="builtins", node="chemistry", permissions=INTERNAL_TOOL_PERMISSIONS
-        ),
-    )
-    scored = runtime.execute(
-        "score_supramolecular_candidate",
-        {"compounds": described.model_dump(mode="json")["compounds"]},
-        ToolExecutionContext(
-            run_id="builtins", node="chemistry", permissions=INTERNAL_TOOL_PERMISSIONS
-        ),
-    )
-    assert len(scored.model_dump()["compounds"]) == 2
+    assert len(normalized.model_dump()["normalized_herbs"]) == 2
 
     workflow = LangGraphAnalysisWorkflow(analysis, checkpointer=InMemorySaver(), runtime=runtime)
     result = workflow.invoke("workflow-tools", ["黄芪"])
     audits = runtime.audits_for_run("workflow-tools")
     assert [audit.tool_name for audit in audits] == [
         "normalize_herbs",
-        "discover_compounds",
-        "calculate_descriptors",
-        "score_supramolecular_candidate",
-        "search_literature",
-        "generate_experiment_proposal",
-        "review_experiment_proposal",
     ]
     assert result.workflow is not None and result.workflow.tooling is not None
     assert result.workflow.tooling.audit_ids == [audit.audit_id for audit in audits]

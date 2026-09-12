@@ -17,7 +17,6 @@ def settings(tmp_path: Path, *, stream_mode: str = "required") -> Settings:
         internal_token="test-only-agent-token",
         database_path=tmp_path / "runs.db",
         checkpoint_path=tmp_path / "checkpoints.db",
-        evidence_database_path=tmp_path / "evidence.db",
         canonical_database_path=tmp_path / "canonical.db",
         llm_proxy_url="http://go/internal/v1/llm/chat",
         llm_stream_mode=stream_mode,
@@ -66,10 +65,10 @@ def test_stream_chat_aggregates_text_deltas_and_multiline_sse(tmp_path: Path) ->
 
 def test_stream_chat_aggregates_fragmented_multiple_tool_calls(tmp_path: Path) -> None:
     proxy = client_for(
-        'event: tool_call_delta\ndata: {"index":1,"id":"call-b","name":"search_"}\n\n'
+        'event: tool_call_delta\ndata: {"index":1,"id":"call-b","name":"search_toxicology_"}\n\n'
         'event: tool_call_delta\ndata: {"index":0,"id":"call-a","function":'
         '{"name":"normalize_herbs","arguments":"{\\"value\\":"}}\n\n'
-        'event: tool_call_delta\ndata: {"index":1,"name":"literature",'
+        'event: tool_call_delta\ndata: {"index":1,"name":"knowledge",'
         '"arguments":"{\\"query\\":\\"黄芪\\"}"}\n\n'
         'event: tool_call_delta\ndata: {"index":0,"arguments":"\\"黄芪\\"}"}\n\n'
         "event: done\ndata: {}\n\n",
@@ -81,7 +80,7 @@ def test_stream_chat_aggregates_fragmented_multiple_tool_calls(tmp_path: Path) -
     assert [call.id for call in result.tool_calls] == ["call-a", "call-b"]
     assert result.tool_calls[0].function.name == "normalize_herbs"
     assert result.tool_calls[0].function.arguments == '{"value":"黄芪"}'
-    assert result.tool_calls[1].function.name == "search_literature"
+    assert result.tool_calls[1].function.name == "search_toxicology_knowledge"
     assert result.tool_calls[1].function.arguments == '{"query":"黄芪"}'
 
 

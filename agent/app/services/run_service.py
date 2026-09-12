@@ -9,7 +9,6 @@ from app.core.config import Settings, get_settings
 from app.models.run import RunCreate, RunResponse, RunStatus, WorkflowStatus
 from app.services.analysis_service import AnalysisService
 from app.services.builtin_tools import build_tool_registry
-from app.services.evidence_store import EvidenceStore
 from app.services.run_repository import (
     DuplicateRunRepositoryError,
     SQLiteRunRepository,
@@ -46,11 +45,8 @@ class RunService:
     ) -> None:
         configured = settings or get_settings()
         analysis = analysis_service or AnalysisService(configured)
-        self._evidence_store = EvidenceStore(
-            configured.evidence_source_path, configured.evidence_database_path
-        )
         self._runtime = runtime or ToolRuntime(
-            build_tool_registry(analysis, self._evidence_store),
+            build_tool_registry(analysis),
             database_path or configured.database_path,
         )
         self._workflow = workflow or LangGraphAnalysisWorkflow(
@@ -190,10 +186,6 @@ class RunService:
     def runtime(self) -> ToolRuntime:
         return self._runtime
 
-    @property
-    def evidence_store(self) -> EvidenceStore:
-        return self._evidence_store
-
     def get(self, run_id: str) -> RunResponse:
         return self._require(run_id)
 
@@ -246,7 +238,6 @@ class RunService:
         self._workflow.close()
         self._runtime.close()
         self._repository.close()
-        self._evidence_store.close()
         with self._lock:
             self._closed = True
 

@@ -14,15 +14,10 @@ class Settings(BaseSettings):
     pubchem_timeout_seconds: float = Field(default=2.0, gt=0.0, le=10.0)
     database_path: Path = Path("./data/agent_runs.db")
     checkpoint_path: Path = Path("./data/checkpoints.db")
-    evidence_source_path: Path = Path(
-        "./resources/literature/TCM_Supramolecular_Literature_Search_EN_v3_filled.xlsx"
-    )
-    evidence_database_path: Path = Path("./data/evidence.db")
     canonical_database_path: Path = Path("./data/canonical_knowledge.db")
     evidence_tenant_id: str = Field(default="default", min_length=1, max_length=128)
-    evidence_project_id: str = Field(default="literature", min_length=1, max_length=128)
+    evidence_project_id: str = Field(default="toxicology", min_length=1, max_length=128)
     evidence_top_k: int = Field(default=10, ge=1, le=100)
-    proposal_max_conditions: int = Field(default=12, ge=1, le=100)
     worker_count: int = Field(default=2, ge=1, le=64)
     vector_mode: Literal["disabled", "optional", "required"] = "disabled"
     llm_mode: Literal["disabled", "optional", "required"] = "disabled"
@@ -37,12 +32,8 @@ class Settings(BaseSettings):
     qdrant_url: str = "http://qdrant:6333"
     qdrant_api_key: SecretStr | None = None
     qdrant_collection_alias: str = Field(
-        default="medical_evidence_active", pattern=r"^[a-zA-Z0-9_-]+$"
+        default="toxicology_active", pattern=r"^[a-zA-Z0-9_-]+$"
     )
-    supramolecular_collection: str = Field(
-        default="supramolecular_experiments_active", pattern=r"^[a-zA-Z0-9_-]+$"
-    )
-    supramolecular_candidate_multiplier: int = Field(default=5, ge=1, le=20)
     qdrant_timeout_seconds: float = Field(default=5.0, gt=0.0, le=120.0)
     embedding_provider: Literal["sentence_transformers", "deterministic_test"] = (
         "sentence_transformers"
@@ -104,7 +95,6 @@ class Settings(BaseSettings):
     def model_post_init(self, __context: Any) -> None:
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
         self.checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
-        self.evidence_database_path.parent.mkdir(parents=True, exist_ok=True)
         self.canonical_database_path.parent.mkdir(parents=True, exist_ok=True)
 
 

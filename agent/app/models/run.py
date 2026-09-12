@@ -3,8 +3,6 @@ from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.proposal import ExperimentProposal, ProposalReview
-
 
 class RunStatus(StrEnum):
     PENDING = "pending"
@@ -142,8 +140,6 @@ class AnalysisResult(BaseModel):
     capabilities: dict[str, Capability]
     evidence: list[Evidence]
     claims: list[ClaimEvidence] = Field(default_factory=list)
-    proposal: ExperimentProposal | None = None
-    proposal_review: ProposalReview | None = None
     workflow: WorkflowMetadata | None = None
     retrieval_mode: str | None = None
     retrieval_diagnostics: list[dict[str, object]] = Field(default_factory=list)

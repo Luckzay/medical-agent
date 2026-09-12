@@ -103,13 +103,11 @@ services:
     container_name: medical-agent-service
     restart: unless-stopped
     environment:
-      AGENT_SERVICE_NAME: tcm-supramolecular-agent
+      AGENT_SERVICE_NAME: tcm-toxicology-agent
       AGENT_SERVICE_VERSION: 0.6.0
       AGENT_INTERNAL_TOKEN: ${AGENT_INTERNAL_TOKEN:?AGENT_INTERNAL_TOKEN is required}
       AGENT_DATABASE_PATH: /app/data/agent_runs.db
       AGENT_CHECKPOINT_PATH: /app/data/checkpoints.db
-      AGENT_EVIDENCE_SOURCE_PATH: /app/resources/literature/TCM_Supramolecular_Literature_Search_EN_v3_filled.xlsx
-      AGENT_EVIDENCE_DATABASE_PATH: /app/data/evidence.db
       AGENT_EVIDENCE_TOP_K: ${AGENT_EVIDENCE_TOP_K:-10}
       AGENT_WORKER_COUNT: ${AGENT_WORKER_COUNT:-2}
       AGENT_LLM_MODE: ${AGENT_LLM_MODE:-optional}
@@ -124,8 +122,9 @@ services:
       AGENT_CANONICAL_DATABASE_PATH: /app/data/canonical_knowledge.db
       AGENT_VECTOR_MODE: ${AGENT_VECTOR_MODE:-disabled}
       AGENT_QDRANT_URL: http://qdrant:6333
-      AGENT_QDRANT_COLLECTION_ALIAS: ${AGENT_QDRANT_COLLECTION_ALIAS:-medical_evidence_active}
-      AGENT_SUPRAMOLECULAR_COLLECTION: ${AGENT_SUPRAMOLECULAR_COLLECTION:-supramolecular_experiments_active}
+      AGENT_QDRANT_COLLECTION_ALIAS: ${AGENT_QDRANT_COLLECTION_ALIAS:-toxicology_active}
+      AGENT_EVIDENCE_TENANT_ID: ${AGENT_EVIDENCE_TENANT_ID:-default}
+      AGENT_EVIDENCE_PROJECT_ID: ${AGENT_EVIDENCE_PROJECT_ID:-toxicology}
       AGENT_EMBEDDING_PROVIDER: sentence_transformers
       AGENT_EMBEDDING_MODEL: intfloat/multilingual-e5-small
       AGENT_EMBEDDING_REVISION: 614241f622f53c4eeff9890bdc4f31cfecc418b3

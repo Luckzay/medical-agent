@@ -28,7 +28,6 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
             chat_service.close()
             run_service.shutdown(wait=True)
             run_service.runtime.close()
-            run_service.evidence_store.close()
 
 
 app = FastAPI(

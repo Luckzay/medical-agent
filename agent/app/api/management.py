@@ -7,7 +7,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.routes import InternalAuthDependency
 from app.core.config import get_settings
-from app.models.evidence import LiteratureSearchInput
 from app.models.knowledge import OwnershipScope
 from app.services.document_processing import (
     ChunkingPolicy,
@@ -15,7 +14,6 @@ from app.services.document_processing import (
     PlainTextParser,
     StructureFirstChunker,
 )
-from app.services.evidence_retrieval import get_retrieval_service
 from app.services.ingestion import IngestionService
 from app.services.knowledge_repository import SQLiteCanonicalRepository
 from app.services.runtime import build_runtime
@@ -123,7 +121,10 @@ def get_ingestion(
 def versions(
     document_id: str, scope: DocumentScope, _auth: InternalAuthDependency
 ) -> list[dict[str, object]]:
-    return [item.model_dump(mode="json") for item in repository().list_versions(scope, document_id)]
+    return [
+        item.model_dump(mode="json")
+        for item in repository().list_versions(scope, document_id)
+    ]
 
 
 @router.delete("/documents/{document_id}")
@@ -204,23 +205,14 @@ def reconcile_index(
 def diagnostics(
     request: DiagnosticRequest, scope: IndexScope, _auth: InternalAuthDependency
 ) -> dict[str, object]:
-    result = get_retrieval_service().search(
-        LiteratureSearchInput(
-            query=request.query,
-            top_k=10,
-            retrieval_mode=get_settings().vector_mode,
-            diagnostics=True,
-        ),
-        trusted_scope=scope,
-    )
     return {
         "query_length": len(request.query),
         "filter_names": sorted(request.filters),
         "scope": scope.model_dump(),
-        "mode": result.retrieval_mode,
-        "degraded": result.degraded,
-        "degraded_reason": result.degraded_reason
-        or ("vector_disabled" if get_settings().vector_mode == "disabled" else None),
-        "diagnostics": result.diagnostics,
-        "evidence_ids": [hit.document_id for hit in result.hits],
+        "status": "disabled",
+        "degraded_reason": "vector_disabled",
+        "message": (
+            "Literature search diagnostics is disabled as "
+            "supramolecular evidence is removed."
+        )
     }

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import sqlite3
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -13,12 +14,8 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, START, StateGraph
 
 from app.core.config import get_settings
-from app.models.proposal import ExperimentProposal, ProposalReview
 from app.models.run import (
     AnalysisResult,
-    ClaimEvidence,
-    CompoundResult,
-    Evidence,
     LLMStatus,
     ToolingMetadata,
     WorkflowMetadata,
@@ -26,11 +23,7 @@ from app.models.run import (
     WorkflowStep,
 )
 from app.models.tooling import (
-    CalculateDescriptorsOutput,
-    DiscoverCompoundsOutput,
     NormalizeHerbsOutput,
-    ScoreCandidatesOutput,
-    SearchLiteratureOutput,
     ToolExecutionContext,
 )
 from app.services.analysis_service import AnalysisService
@@ -38,6 +31,7 @@ from app.services.builtin_tools import INTERNAL_TOOL_PERMISSIONS, build_tool_reg
 from app.services.llm_proxy import LLMProxyClient
 from app.services.tool_runtime import ToolRuntime
 
+logger = logging.getLogger(__name__)
 NodeHook = Callable[[str], None]
 
 
@@ -80,7 +74,7 @@ class AnalysisWorkflow(Protocol):
 
 
 class LangGraphAnalysisWorkflow:
-    """Seven-stage deterministic graph with durable, resumable per-run checkpoints."""
+    """Simplified deterministic graph for medical agent analysis."""
 
     def __init__(
         self,
@@ -115,19 +109,9 @@ class LangGraphAnalysisWorkflow:
             )
         builder = StateGraph(WorkflowState)
         builder.add_node("normalize", self._normalize)
-        builder.add_node("discover", self._discover)
-        builder.add_node("chemistry", self._chemistry)
-        builder.add_node("evidence", self._evidence)
-        builder.add_node("proposal", self._proposal)
-        builder.add_node("review", self._review)
         builder.add_node("finalize", self._finalize)
         builder.add_edge(START, "normalize")
-        builder.add_edge("normalize", "discover")
-        builder.add_edge("discover", "chemistry")
-        builder.add_edge("chemistry", "evidence")
-        builder.add_edge("evidence", "proposal")
-        builder.add_edge("proposal", "review")
-        builder.add_edge("review", "finalize")
+        builder.add_edge("normalize", "finalize")
         builder.add_edge("finalize", END)
         self._graph = builder.compile(checkpointer=self._checkpointer)
 
@@ -183,245 +167,39 @@ class LangGraphAnalysisWorkflow:
             ],
         }
 
-    def _discover(self, state: WorkflowState, config: RunnableConfig) -> dict[str, object]:
-        started = self._start("discover")
-        result = DiscoverCompoundsOutput.model_validate(
-            self._runtime.execute(
-                "discover_compounds",
-                {"normalized_herbs": state["normalized_herbs"]},
-                self._tool_context(config, "discover"),
-            )
-        )
-        discovered = [item.model_dump(mode="json") for item in result.compounds]
-        return {
-            "discovered": discovered,
-            "evidence": [item.model_dump(mode="json") for item in result.evidence],
-            "unresolved_herbs": result.unresolved_herbs,
-            "online_failures": result.online_failures,
-            "steps": [
-                *state["steps"],
-                self._step("discover", started, f"发现 {len(discovered)} 个成分"),
-            ],
-        }
-
-    def _chemistry(self, state: WorkflowState, config: RunnableConfig) -> dict[str, object]:
-        started = self._start("chemistry")
-        context = self._tool_context(config, "chemistry")
-        described = CalculateDescriptorsOutput.model_validate(
-            self._runtime.execute(
-                "calculate_descriptors", {"compounds": state["discovered"]}, context
-            )
-        )
-        scored = ScoreCandidatesOutput.model_validate(
-            self._runtime.execute(
-                "score_supramolecular_candidate",
-                {"compounds": described.model_dump(mode="json")["compounds"]},
-                context,
-            )
-        )
-        compounds = [
-            CompoundResult(
-                **item.compound.model_dump(),
-                descriptors=item.descriptors,
-                candidate_score=item.candidate_score,
-            )
-            for item in scored.compounds
-        ]
-        return {
-            "compounds": [item.model_dump(mode="json") for item in compounds],
-            "steps": [
-                *state["steps"],
-                self._step("chemistry", started, f"完成 {len(compounds)} 个成分的化学计算"),
-            ],
-        }
-
-    def _evidence(self, state: WorkflowState, config: RunnableConfig) -> dict[str, object]:
-        started = self._start("evidence")
-        compounds = [CompoundResult.model_validate(item) for item in state["compounds"]]
-        output = SearchLiteratureOutput.model_validate(
-            self._runtime.execute(
-                "search_literature",
-                {
-                    "query": state.get("research_goal"),
-                    "research_goal": state.get("research_goal"),
-                    "herbs": state["normalized_herbs"],
-                    "compounds": [item.name for item in compounds],
-                    "smiles": [item.smiles for item in compounds if item.smiles],
-                    "top_k": get_settings().evidence_top_k,
-                    "retrieval_mode": get_settings().vector_mode,
-                    "diagnostics": True,
-                },
-                self._tool_context(config, "evidence"),
-            )
-        )
-        literature: list[Evidence] = []
-        for hit in output.hits:
-            evidence_id = f"literature:{hit.document_id}"
-            literature.append(
-                Evidence(
-                    evidence_id=evidence_id,
-                    source="TCM supramolecular literature dataset",
-                    source_type="literature",
-                    reference=hit.link_or_doi or f"source-row://{hit.source_row}",
-                    title=hit.title,
-                    link=hit.link_or_doi,
-                    year=hit.year,
-                    source_row=hit.source_row,
-                    matched_fields=hit.matched_fields,
-                    score=hit.final_score,
-                    conditions=hit.conditions,
-                )
-            )
-            hit_compounds = (hit.compounds or "").lower()
-            for compound in compounds:
-                names = [
-                    part.strip().lower() for part in compound.name.replace("（", "(").split("(")
-                ]
-                if (compound.smiles and compound.smiles in hit.smiles) or any(
-                    name and name in hit_compounds for name in names
-                ):
-                    compound.evidence_ids = list(
-                        dict.fromkeys([*compound.evidence_ids, evidence_id])
-                    )
-        combined = [*state["evidence"], *(item.model_dump(mode="json") for item in literature)]
-        claims = [
-            ClaimEvidence(
-                claim_id=f"candidate:{compound.compound_id}",
-                claim_text=(
-                    f"{compound.name} 的确定性候选规则得分为 "
-                    f"{compound.candidate_score.total_score}。"
-                ),
-                claim_type="deterministic_candidate_score",
-                evidence_ids=compound.evidence_ids,
-                confidence=1.0,
-                basis="本地种子来源与确定性规则计算；不表述为文献证明",
-            )
-            for compound in compounds
-            if compound.evidence_ids
-        ]
-        return {
-            "compounds": [item.model_dump(mode="json") for item in compounds],
-            "evidence": combined,
-            "claims": [item.model_dump(mode="json") for item in claims],
-            "retrieval_mode": output.retrieval_mode,
-            "retrieval_diagnostics": output.diagnostics,
-            "steps": [
-                *state["steps"],
-                self._step("evidence", started, f"检索到 {len(literature)} 条文献证据"),
-            ],
-        }
-
-    def _proposal(self, state: WorkflowState, config: RunnableConfig) -> dict[str, object]:
-        started = self._start("proposal")
-        proposal = ExperimentProposal.model_validate(
-            self._runtime.execute(
-                "generate_experiment_proposal",
-                {
-                    "compounds": state["compounds"],
-                    "claims": state["claims"],
-                    "evidence": state["evidence"],
-                    "max_conditions": get_settings().proposal_max_conditions,
-                },
-                self._tool_context(config, "proposal"),
-            )
-        )
-        return {
-            "proposal": proposal.model_dump(mode="json"),
-            "steps": [
-                *state["steps"],
-                self._step(
-                    "proposal", started, f"生成 {len(proposal.condition_matrix)} 个条件单元"
-                ),
-            ],
-        }
-
-    def _review(self, state: WorkflowState, config: RunnableConfig) -> dict[str, object]:
-        started = self._start("review")
-        evidence = [Evidence.model_validate(item) for item in state["evidence"]]
-        review = ProposalReview.model_validate(
-            self._runtime.execute(
-                "review_experiment_proposal",
-                {
-                    "proposal": state["proposal"],
-                    "available_evidence_ids": [item.evidence_id for item in evidence],
-                },
-                self._tool_context(config, "review"),
-            )
-        )
-        return {
-            "proposal_review": review.model_dump(mode="json"),
-            "steps": [
-                *state["steps"],
-                self._step("review", started, f"独立审查结果：{review.status}"),
-            ],
-        }
-
     def _finalize(self, state: WorkflowState, config: RunnableConfig) -> dict[str, object]:
         started = self._start("finalize")
-        compounds = [CompoundResult.model_validate(item) for item in state["compounds"]]
-        evidence = [Evidence.model_validate(item) for item in state["evidence"]]
-
-        llm_summary = None
-        llm_status = LLMStatus.DISABLED
         settings = get_settings()
+
+        llm_status = LLMStatus.DISABLED
+        llm_summary = None
+
         if settings.llm_mode != "disabled":
-            system_prompt = (
-                "你是一个专业的中药超分子化学研究员。请基于提供的实验发现、"
-                "候选成分评分和文献证据，生成一段精炼的中文科研摘要。"
-                "摘要应包含研究背景、核心发现（如关键候选成分及其评分理由）以及"
-                "对后续实验的建议。"
-            )
-            max_score_compound = (
-                max(compounds, key=lambda c: c.candidate_score.total_score).name
-                if compounds
-                else "N/A"
-            )
-            user_prompt = (
-                f"研究目标: {state.get('research_goal', '未指定')}\n"
-                f"涉及药材: {', '.join(state.get('normalized_herbs', []))}\n"
-                f"发现成分数量: {len(compounds)}\n"
-                f"候选评分最高成分: {max_score_compound}\n"
-                f"文献证据条数: {len(evidence)}\n"
-            )
             try:
-                llm_summary = self._llm.chat(system_prompt, user_prompt)
+                llm_summary = self._llm.chat(
+                    system_prompt="You are a medical assistant.",
+                    user_prompt=(
+                        "Summarize the analysis for herbs: "
+                        f"{state.get('normalized_herbs', [])}"
+                    ),
+                )
                 llm_status = LLMStatus.GENERATED
             except Exception as exc:
                 if settings.llm_mode == "required":
-                    raise exc
+                    raise
                 llm_status = LLMStatus.DEGRADED
-                llm_summary = None
+                logger.warning(f"LLM enhancement failed: {exc}")
 
         result = self._analysis.finalize(
-            state["normalized_herbs"],
-            compounds,
-            evidence,
-            state["unresolved_herbs"],
-            state["online_failures"],
+            state.get("normalized_herbs", []),
+            [],  # compounds
+            [],  # evidence
+            [],  # unresolved
+            0,   # online failures
             llm_summary=llm_summary,
             llm_status=llm_status,
         )
-        result.proposal = ExperimentProposal.model_validate(state["proposal"])
-        result.proposal_review = ProposalReview.model_validate(state["proposal_review"])
-        result.retrieval_mode = state.get("retrieval_mode")
-        result.retrieval_diagnostics = state.get("retrieval_diagnostics", [])
-        available_ids = {item.evidence_id for item in result.evidence}
-        proposal_reference_groups = [
-            *(item.evidence_ids for item in result.proposal.selected_compounds),
-            *(item.evidence_ids for item in result.proposal.hypotheses),
-            *(item.evidence_ids for item in result.proposal.condition_matrix),
-            *(item.evidence_ids for item in result.proposal.measurement_plan),
-            *(item.evidence_ids for item in result.proposal.controls),
-            *(item.evidence_ids for item in result.proposal.risks),
-        ]
-        missing_ids = {
-            evidence_id
-            for group in proposal_reference_groups
-            for evidence_id in group
-            if evidence_id not in available_ids
-        }
-        if missing_ids:
-            raise RuntimeError(f"proposal contains unavailable evidence IDs: {sorted(missing_ids)}")
+
         steps_data = [
             *state["steps"],
             self._step("finalize", started, "汇总分析结果与能力状态"),
@@ -434,13 +212,7 @@ class LangGraphAnalysisWorkflow:
             status=WorkflowStatus.COMPLETED,
             steps=[WorkflowStep.model_validate(item) for item in steps_data],
             tooling=ToolingMetadata(
-                skills=[
-                    "compound-discovery",
-                    "molecular-analysis",
-                    "literature-research",
-                    "experiment-design",
-                    "proposal-review",
-                ],
+                skills=[],
                 audit_ids=[audit.audit_id for audit in audits],
             ),
         )

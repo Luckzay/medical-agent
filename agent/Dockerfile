@@ -5,9 +5,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     UV_HTTP_TIMEOUT=300 \
     UV_HTTP_RETRIES=5 \
     AGENT_DATABASE_PATH=/app/data/agent_runs.db \
-    AGENT_CHECKPOINT_PATH=/app/data/checkpoints.db \
-    AGENT_EVIDENCE_SOURCE_PATH=/app/resources/literature/TCM_Supramolecular_Literature_Search_EN_v3_filled.xlsx \
-    AGENT_EVIDENCE_DATABASE_PATH=/app/data/evidence.db
+    AGENT_CHECKPOINT_PATH=/app/data/checkpoints.db
 
 WORKDIR /app
 

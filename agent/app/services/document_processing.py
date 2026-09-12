@@ -4,7 +4,6 @@ import hashlib
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
-from pathlib import Path
 from uuid import NAMESPACE_URL, uuid5
 
 from app.models.knowledge import (
@@ -14,7 +13,6 @@ from app.models.knowledge import (
     OwnershipScope,
     SourceLocator,
 )
-from app.services.evidence_importer import import_literature
 from app.services.knowledge_ports import DocumentParser, UnsupportedMediaTypeError
 
 
@@ -150,38 +148,6 @@ def _block(
         hierarchy=hierarchy,
         metadata=metadata or {},
     )
-
-
-def literature_blocks(
-    path: str | Path, version_id: str
-) -> tuple[list[NormalizedBlock], dict[str, str]]:
-    records, _ = import_literature(path)
-    blocks: list[NormalizedBlock] = []
-    evidence: dict[str, str] = {}
-    for ordinal, record in enumerate(records):
-        data = record.model_dump(
-            mode="json", exclude={"document_id", "source_file", "sheet", "source_row"}
-        )
-        text = "\n".join(
-            f"{key}: {value}" for key, value in data.items() if value not in (None, [], "")
-        )
-        locator = SourceLocator(
-            source_uri=record.source_file, sheet=record.sheet, row=record.source_row
-        )
-        block = _block(
-            version_id,
-            ordinal,
-            BlockType.STRUCTURED_ROW,
-            text,
-            locator,
-            metadata={
-                "headers": list(data),
-                "legacy_evidence_id": f"literature:{record.document_id}",
-            },
-        )
-        blocks.append(block)
-        evidence[f"literature:{record.document_id}"] = block.block_id
-    return blocks, evidence
 
 
 @dataclass(frozen=True)

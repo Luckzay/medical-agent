@@ -117,7 +117,7 @@ class LLMProxyClient:
             payload = self._rich_payload(messages, tools, tool_choice)
 
         try:
-            with httpx.Client(timeout=self._timeout) as client:
+            with httpx.Client(timeout=self._timeout, trust_env=False) as client:
                 response = client.post(self._url, json=payload, headers=self._headers)
                 self._raise_for_status(response)
                 result = LLMChatResult.model_validate(response.json())
@@ -181,7 +181,7 @@ class LLMProxyClient:
         calls: dict[int, dict[str, str]] = {}
         done = False
         try:
-            with httpx.Client(timeout=self._timeout) as client:
+            with httpx.Client(timeout=self._timeout, trust_env=False) as client:
                 with client.stream(
                     "POST", self._stream_url, json=payload, headers=self._headers
                 ) as response:

@@ -1,124 +1,47 @@
 from __future__ import annotations
 
+import json
+import logging
+from typing import Any
+
 import httpx
 
 from app.core.config import get_settings
-from app.models.evidence import LiteratureSearchInput
 from app.models.knowledge import OwnershipScope
-from app.models.proposal import ExperimentProposal, ProposalReview
 from app.models.tooling import (
-    CalculateDescriptorsInput,
-    CalculateDescriptorsOutput,
-    DescribedCompound,
-    DiscoverCompoundsInput,
-    DiscoverCompoundsOutput,
-    DiscoveredCompoundModel,
-    GenerateExperimentProposalInput,
     NormalizeHerbsInput,
     NormalizeHerbsOutput,
     RetryPolicy,
-    ReviewExperimentProposalInput,
-    ScoreCandidatesInput,
-    ScoreCandidatesOutput,
-    ScoredCompound,
-    SearchLiteratureInput,
-    SearchLiteratureOutput,
     SearchMedicalKnowledgeInput,
     SearchMedicalKnowledgeOutput,
-    SkillDefinition,
     ToolDefinition,
 )
 from app.services.analysis_service import AnalysisService
-from app.services.evidence_retrieval import EvidenceRetrievalService, get_retrieval_service
-from app.services.evidence_store import EvidenceStore
+from app.services.hybrid_retrieval import reciprocal_rank_fusion
 from app.services.knowledge_repository import SQLiteCanonicalRepository
-from app.services.proposal_service import generate_experiment_proposal, review_experiment_proposal
+from app.services.runtime import build_runtime
 from app.services.tool_registry import ToolRegistry
+
+logger = logging.getLogger(__name__)
 
 TOOL_VERSION = "1.3.0"
 INTERNAL_TOOL_PERMISSIONS = frozenset(
     {
         "herbs:normalize",
-        "compounds:discover",
-        "chemistry:calculate",
-        "candidates:score",
-        "evidence:search",
         "knowledge:search",
-        "proposal:generate",
-        "proposal:review",
     }
 )
 MCP_TOOL_PERMISSIONS = INTERNAL_TOOL_PERMISSIONS
 
 
 def build_tool_registry(
-    analysis: AnalysisService, evidence_store: EvidenceStore | None = None
+    analysis: AnalysisService
 ) -> ToolRegistry:
     registry = ToolRegistry()
     settings = get_settings()
-    retrieval = (
-        EvidenceRetrievalService(
-            settings,
-            evidence_store,
-            SQLiteCanonicalRepository(settings.canonical_database_path),
-        )
-        if evidence_store is not None
-        else get_retrieval_service(settings)
-    )
 
     def normalize(request: NormalizeHerbsInput) -> NormalizeHerbsOutput:
         return NormalizeHerbsOutput(normalized_herbs=analysis.normalize(request.herbs))
-
-    def discover(request: DiscoverCompoundsInput) -> DiscoverCompoundsOutput:
-        result = analysis.discover(request.normalized_herbs)
-        return DiscoverCompoundsOutput(
-            compounds=[
-                DiscoveredCompoundModel(
-                    compound_id=item.compound_id,
-                    name=item.name,
-                    herb=item.herb,
-                    smiles=item.smiles,
-                    pubchem_cid=item.pubchem_cid,
-                    evidence_ids=item.evidence_ids,
-                )
-                for item in result.compounds
-            ],
-            evidence=result.evidence,
-            unresolved_herbs=result.unresolved_herbs,
-            online_failures=result.online_failures,
-        )
-
-    def descriptors(request: CalculateDescriptorsInput) -> CalculateDescriptorsOutput:
-        return CalculateDescriptorsOutput(
-            compounds=[
-                DescribedCompound(
-                    compound=item,
-                    descriptors=analysis.calculate_descriptors(item.smiles),
-                )
-                for item in request.compounds
-            ]
-        )
-
-    def score(request: ScoreCandidatesInput) -> ScoreCandidatesOutput:
-        return ScoreCandidatesOutput(
-            compounds=[
-                ScoredCompound(
-                    compound=item.compound,
-                    descriptors=item.descriptors,
-                    candidate_score=analysis.score(item.compound.smiles, item.descriptors),
-                )
-                for item in request.compounds
-            ]
-        )
-
-    def search_literature(request: SearchLiteratureInput) -> SearchLiteratureOutput:
-        return retrieval.search(
-            LiteratureSearchInput.model_validate(request.model_dump()),
-            trusted_scope=OwnershipScope(
-                tenant_id=settings.evidence_tenant_id,
-                project_id=settings.evidence_project_id,
-            ),
-        )
 
     def search_medical_knowledge(
         request: SearchMedicalKnowledgeInput,
@@ -135,15 +58,143 @@ def build_tool_registry(
             payload = {"results": payload}
         return SearchMedicalKnowledgeOutput.model_validate(payload)
 
-    def generate_proposal(request: GenerateExperimentProposalInput) -> ExperimentProposal:
-        return generate_experiment_proposal(
-            request.compounds, request.claims, request.evidence, request.max_conditions
+    def search_toxicology_knowledge(
+        request: SearchMedicalKnowledgeInput,
+    ) -> SearchMedicalKnowledgeOutput:
+        lexical_ids: list[str] = []
+        exact_boosts: dict[str, tuple[str, ...]] = {}
+
+        canonical = SQLiteCanonicalRepository(settings.canonical_database_path)
+        scope = OwnershipScope(
+            tenant_id=settings.evidence_tenant_id,
+            project_id=settings.evidence_project_id,
         )
 
-    def review_proposal(request: ReviewExperimentProposalInput) -> ProposalReview:
-        return review_experiment_proposal(
-            request.proposal.model_dump(mode="json"), request.available_evidence_ids
+        # 1. Lexical search (SQLite)
+        sqlite_failed = False
+        try:
+            # Exact match (Herb name)
+            rows = canonical.connection.execute(
+                "SELECT reference FROM toxicology_herbs WHERE name = ?",
+                (request.query,)
+            ).fetchall()
+            for row in rows:
+                ref = str(row["reference"])
+                if ref not in exact_boosts:
+                    lexical_ids.append(ref)
+                    exact_boosts[ref] = ("name",)
+
+            # Exact match (Compound name, CAS, Formula)
+            rows = canonical.connection.execute(
+                "SELECT h.reference FROM toxicology_herbs h "
+                "JOIN toxicology_compounds c ON h.herb_id = c.herb_id "
+                "WHERE c.name = ? OR c.cas = ? OR c.formula = ?",
+                (request.query, request.query, request.query)
+            ).fetchall()
+            for row in rows:
+                ref = str(row["reference"])
+                if ref not in exact_boosts:
+                    lexical_ids.append(ref)
+                    exact_boosts[ref] = ("compound",)
+
+            # FTS match (Safe quoting)
+            try:
+                # Basic FTS5 escape: wrap in double quotes, escape double quotes by doubling them
+                query_escaped = request.query.replace('"', '""')
+                fts_query = f'"{query_escaped}"'
+                fts_rows = canonical.connection.execute(
+                    "SELECT h.reference FROM toxicology_herbs h "
+                    "JOIN toxicology_fts f ON h.herb_id = f.herb_id "
+                    "WHERE toxicology_fts MATCH ? ORDER BY rank LIMIT ?",
+                    (fts_query, request.limit * 2)
+                ).fetchall()
+                for row in fts_rows:
+                    ref = str(row["reference"])
+                    if ref not in exact_boosts and ref not in lexical_ids:
+                        lexical_ids.append(ref)
+            except Exception as fts_exc:
+                logger.warning(
+                    f"Toxicology FTS search failed for query '{request.query}': {fts_exc}"
+                )
+
+        except Exception as exc:
+            logger.error(f"Toxicology SQLite search failed: {exc}")
+            sqlite_failed = True
+
+        # 2. Vector search (Qdrant)
+        vector_ids: list[str] = []
+        vector_failed = False
+        if settings.vector_mode != "disabled":
+            try:
+                vector = build_runtime(settings)
+                if vector.store is not None and vector.manifest is not None:
+                    # Snapshot check
+                    sq_row = canonical.connection.execute(
+                        "SELECT source_snapshot FROM toxicology_snapshots"
+                    ).fetchone()
+                    sq_snapshot = sq_row[0] if sq_row else None
+                    v_snapshot = vector.manifest.source_snapshot
+
+                    if sq_snapshot and v_snapshot and sq_snapshot != v_snapshot:
+                        logger.error(
+                            f"Toxicology snapshot mismatch: SQLite {sq_snapshot[:8]} "
+                            f"!= Qdrant {v_snapshot[:8]}. Vector search disabled."
+                        )
+                    else:
+                        hits = vector.store.search(
+                            settings.qdrant_collection_alias,
+                            vector.embedding.embed_query(request.query),
+                            scope,
+                            request.limit * 2,
+                        )
+                        # Map chunk_ids to references
+                        c_ids = [hit.chunk_id for hit in hits]
+                        chunks = canonical.get_chunks(scope, c_ids)
+                        for chunk in chunks:
+                            payload = json.loads(chunk.text)
+                            ref = payload.get("reference")
+                            if ref:
+                                vector_ids.append(ref)
+            except Exception as exc:
+                logger.error(f"Toxicology vector search failed: {exc}")
+                vector_failed = True
+
+        if not lexical_ids and not vector_ids:
+            if sqlite_failed and (vector_failed or settings.vector_mode == "disabled"):
+                raise RuntimeError("toxicology search failed: both SQLite and Qdrant unavailable")
+            return SearchMedicalKnowledgeOutput(results=[])
+
+        # 3. RRF
+        fused = reciprocal_rank_fusion(
+            lexical_ids, vector_ids, exact_boosts=exact_boosts
         )
+
+        # 4. Resolve full records
+        results: list[dict[str, Any]] = []
+        top_refs = [item.identifier for item in fused[:request.limit]]
+        if top_refs:
+            marks = ",".join("?" for _ in top_refs)
+            herb_rows = canonical.connection.execute(
+                f"SELECT * FROM toxicology_herbs WHERE reference IN ({marks})",
+                top_refs
+            ).fetchall()
+
+            herbs_by_ref = {}
+            for row in herb_rows:
+                h = dict(row)
+                h_id = h["herb_id"]
+                # Get compounds
+                c_rows = canonical.connection.execute(
+                    "SELECT compound_id, name, formula, cas, logical_source "
+                    "FROM toxicology_compounds WHERE herb_id = ?",
+                    (h_id,)
+                ).fetchall()
+                h["toxic_compounds"] = [dict(r) for r in c_rows]
+                herbs_by_ref[h["reference"]] = h
+
+            results = [herbs_by_ref[ref] for ref in top_refs if ref in herbs_by_ref]
+
+        return SearchMedicalKnowledgeOutput(results=results)
 
     registry.register_tool(
         ToolDefinition[NormalizeHerbsInput, NormalizeHerbsOutput](
@@ -154,55 +205,6 @@ def build_tool_registry(
             output_model=NormalizeHerbsOutput,
             required_permissions=frozenset({"herbs:normalize"}),
             handler=normalize,
-        )
-    )
-    registry.register_tool(
-        ToolDefinition[DiscoverCompoundsInput, DiscoverCompoundsOutput](
-            name="discover_compounds",
-            version=TOOL_VERSION,
-            description="从确定性种子库发现成分，并按配置可选补全 PubChem 证据。",
-            input_model=DiscoverCompoundsInput,
-            output_model=DiscoverCompoundsOutput,
-            required_permissions=frozenset({"compounds:discover"}),
-            timeout_seconds=10.0,
-            retry_policy=RetryPolicy(max_retries=1),
-            handler=discover,
-        )
-    )
-    registry.register_tool(
-        ToolDefinition[CalculateDescriptorsInput, CalculateDescriptorsOutput](
-            name="calculate_descriptors",
-            version=TOOL_VERSION,
-            description="批量计算分子描述符；RDKit 不可用时返回空描述符。",
-            input_model=CalculateDescriptorsInput,
-            output_model=CalculateDescriptorsOutput,
-            required_permissions=frozenset({"chemistry:calculate"}),
-            handler=descriptors,
-        )
-    )
-    registry.register_tool(
-        ToolDefinition[ScoreCandidatesInput, ScoreCandidatesOutput](
-            name="score_supramolecular_candidate",
-            version=TOOL_VERSION,
-            description="按确定性规则批量评分超分子候选成分。",
-            input_model=ScoreCandidatesInput,
-            output_model=ScoreCandidatesOutput,
-            required_permissions=frozenset({"candidates:score"}),
-            handler=score,
-        )
-    )
-
-    registry.register_tool(
-        ToolDefinition[SearchLiteratureInput, SearchLiteratureOutput](
-            name="search_literature",
-            version=TOOL_VERSION,
-            description="离线检索可追溯的超分子中药文献证据。",
-            input_model=SearchLiteratureInput,
-            output_model=SearchLiteratureOutput,
-            required_permissions=frozenset({"evidence:search"}),
-            timeout_seconds=10.0,
-            retry_policy=RetryPolicy(max_retries=0),
-            handler=search_literature,
         )
     )
     registry.register_tool(
@@ -219,96 +221,19 @@ def build_tool_registry(
         )
     )
     registry.register_tool(
-        ToolDefinition[GenerateExperimentProposalInput, ExperimentProposal](
-            name="generate_experiment_proposal",
+        ToolDefinition[SearchMedicalKnowledgeInput, SearchMedicalKnowledgeOutput](
+            name="search_toxicology_knowledge",
             version=TOOL_VERSION,
-            description="仅基于评分成分、声明和证据生成确定性的实验方案。",
-            input_model=GenerateExperimentProposalInput,
-            output_model=ExperimentProposal,
-            required_permissions=frozenset({"proposal:generate"}),
-            handler=generate_proposal,
-        )
-    )
-    registry.register_tool(
-        ToolDefinition[ReviewExperimentProposalInput, ProposalReview](
-            name="review_experiment_proposal",
-            version=TOOL_VERSION,
-            description="独立审查序列化实验方案及其证据引用。",
-            input_model=ReviewExperimentProposalInput,
-            output_model=ProposalReview,
-            required_permissions=frozenset({"proposal:review"}),
-            handler=review_proposal,
-        )
-    )
-
-    registry.register_skill(
-        SkillDefinition(
-            name="literature-research",
-            version=TOOL_VERSION,
-            description="离线混合检索真实文献数据并返回来源定位。",
-            tool_names=("search_literature",),
-            context_policy={
-                "offline_network": "offline",
-                "evidence_required": True,
-                "max_results": 100,
-            },
-        )
-    )
-    registry.register_skill(
-        SkillDefinition(
-            name="compound-discovery",
-            version=TOOL_VERSION,
-            description="药材标准化与可追溯成分发现。",
-            tool_names=("normalize_herbs", "discover_compounds"),
-            context_policy={
-                "offline_network": "respects_settings",
-                "evidence_required": True,
-                "max_compounds": 100,
-            },
-        )
-    )
-    registry.register_skill(
-        SkillDefinition(
-            name="molecular-analysis",
-            version=TOOL_VERSION,
-            description="描述符计算与确定性候选评分。",
-            tool_names=("calculate_descriptors", "score_supramolecular_candidate"),
-            context_policy={
-                "offline_network": "offline",
-                "evidence_required": False,
-                "max_compounds": 100,
-            },
-        )
-    )
-    registry.register_skill(
-        SkillDefinition(
-            name="experiment-design",
-            version=TOOL_VERSION,
-            description="基于当前候选、声明和证据生成受约束的确定性实验方案。",
-            tool_names=("generate_experiment_proposal",),
-            context_policy={
-                "offline_network": "offline",
-                "evidence_required": True,
-                "human_approval_required": True,
-                "max_conditions": 100,
-            },
-        )
-    )
-    registry.register_skill(
-        SkillDefinition(
-            name="proposal-review",
-            version=TOOL_VERSION,
-            description="生成并独立审查证据约束的实验方案。",
-            tool_names=(
-                "generate_experiment_proposal",
-                "review_experiment_proposal",
+            description=(
+                "检索毒理索引中的中药毒理记录，返回 herb_basic:id、"
+                "毒性字段、有毒成分及依据链接。"
             ),
-            context_policy={
-                "offline_network": "offline",
-                "evidence_required": True,
-                "human_approval_required": True,
-                "max_compounds": 100,
-            },
+            input_model=SearchMedicalKnowledgeInput,
+            output_model=SearchMedicalKnowledgeOutput,
+            required_permissions=frozenset({"knowledge:search"}),
+            timeout_seconds=10.0,
+            retry_policy=RetryPolicy(max_retries=1),
+            handler=search_toxicology_knowledge,
         )
     )
     return registry
