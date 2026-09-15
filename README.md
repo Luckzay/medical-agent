@@ -164,12 +164,20 @@ uvicorn app.main:app \
 
 ```bash
 cd agent
-uv sync --dev --extra rdkit
+uv sync --dev --extra rdkit --extra embedding
 uv run uvicorn app.main:app \
   --reload \
   --host 127.0.0.1 \
   --port 8090
 ```
+
+生产环境或 Windows 发布包使用锁定依赖安装，必须同时启用 `rdkit` 和 `embedding`：
+
+```bash
+uv sync --python 3.12 --frozen --no-dev --extra rdkit --extra embedding
+```
+
+`embedding` extra 会安装 `sentence-transformers`。缺少该 extra 时，`build_production_index` 会在生成向量阶段报 `ModuleNotFoundError`。
 
 验证健康检查：
 
@@ -343,7 +351,7 @@ Python Agent（uv）：
 
 ```bash
 cd agent
-uv sync --dev --extra rdkit
+uv sync --dev --extra rdkit --extra embedding
 uv run ruff check .
 uv run mypy app tests
 uv run pytest
