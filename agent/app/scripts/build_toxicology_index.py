@@ -68,7 +68,7 @@ def load_records() -> tuple[list[dict[str, Any]], str]:
     )
     try:
         with connection.cursor() as cursor:
-            columns = "SELECT id, herb_name, common_name, " + ", ".join(TOXICOLOGY_FIELDS)
+            columns = "SELECT id, herb_name, " + ", ".join(TOXICOLOGY_FIELDS)
             cursor.execute(columns + " FROM herb_basic ORDER BY id")
             herbs = list(cursor.fetchall())
             cursor.execute(
