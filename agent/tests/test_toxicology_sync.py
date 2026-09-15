@@ -1,11 +1,12 @@
 import json
+import os
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from app.models.knowledge import DocumentChunk, OwnershipScope, SourceLocator
 from app.models.tooling import SearchMedicalKnowledgeInput
-from app.scripts.build_toxicology_index import sync_structured_sqlite
+from app.scripts.build_toxicology_index import load_db_environment, sync_structured_sqlite
 from app.services.builtin_tools import build_tool_registry
 from app.services.knowledge_repository import SQLiteCanonicalRepository
 
@@ -194,3 +195,28 @@ def test_search_toxicology_failure_handling(temp_repo):
         request = SearchMedicalKnowledgeInput(query="test", limit=10)
         with pytest.raises(RuntimeError, match="toxicology search failed"):
             search_tool.handler(request)
+
+
+def test_load_db_environment_reads_unprefixed_dotenv_without_overriding_process_env(
+    tmp_path, monkeypatch
+):
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        'DB_HOST=mysql.internal\n'
+        'DB_PORT=3307\n'
+        'DB_USER=medical\n'
+        'DB_PASSWORD="secret with spaces"\n'
+        'DB_NAME=ai_medical_db\n',
+        encoding="utf-8",
+    )
+    for key in ("DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME"):
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.setenv("DB_HOST", "environment-wins")
+
+    load_db_environment(env_file)
+
+    assert os.environ["DB_HOST"] == "environment-wins"
+    assert os.environ["DB_PORT"] == "3307"
+    assert os.environ["DB_USER"] == "medical"
+    assert os.environ["DB_PASSWORD"] == "secret with spaces"
+    assert os.environ["DB_NAME"] == "ai_medical_db"

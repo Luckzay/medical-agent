@@ -6,10 +6,12 @@ import json
 import os
 import time
 from collections import defaultdict
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
 import pymysql  # type: ignore[import-untyped]
+from dotenv import dotenv_values
 
 from app.core.config import get_settings
 from app.models.knowledge import DocumentChunk, IndexManifest, OwnershipScope
@@ -36,9 +38,23 @@ TOXICOLOGY_FIELDS = (
     "clinical_suggestion_basis",
     "link_to_clinical_suggestion",
 )
+DB_ENV_KEYS = ("DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME")
+
+
+def load_db_environment(env_file: Path | None = None) -> None:
+    """Load unprefixed MySQL settings from the Agent .env without overriding real env vars."""
+    path = env_file or Path(__file__).resolve().parents[2] / ".env"
+    if not path.is_file():
+        return
+    values = dotenv_values(path)
+    for key in DB_ENV_KEYS:
+        value = values.get(key)
+        if value is not None:
+            os.environ.setdefault(key, value)
 
 
 def load_records() -> tuple[list[dict[str, Any]], str]:
+    load_db_environment()
     db_name = os.getenv("DB_NAME", "ai_medical_db")
     connection = pymysql.connect(
         host=os.getenv("DB_HOST", "127.0.0.1"),
