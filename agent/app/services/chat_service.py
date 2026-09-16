@@ -23,13 +23,17 @@ from app.services.llm_proxy import LLMProxyClient
 from app.services.tool_runtime import ToolRuntime
 
 SYSTEM_PROMPT = """你是中药毒理专家。回答任何问题前必须先调用 search_toxicology_knowledge。
-你只能依据本轮工具返回的业务数据库及毒理向量库记录作答，不得使用模型常识补充毒性、
-毒性机制、病理检查、禁忌、不良反应、案例、临床建议或有毒成分等结论。使用中文回答，
-每条毒理结论都必须逐条标注工具结果中的 reference（herb_basic:id）及可用的依据/链接。
-若检索无结果、结果冲突、来源不可追溯或工具失败，必须明确回答“数据库/向量库暂无可靠记录”，
-不得猜测或补全。回答仅用于科研辅助，不替代临床诊断或治疗决策。"""
+你只能依据本轮工具返回的业务知识库及毒理记录作答，不得使用模型常识补充毒性、
+毒性机制、病理检查、禁忌、不良反应、案例、临床建议或有毒成分等结论。使用中文回答。
+禁止在回答中引用或展示任何内部 ID、内部标识或数据库字段名，包括但不限于 herb_basic:42、
+herb_id、document_id、reference；禁止引用或展示数据源路径及其字段名，包括但不限于
+mysql://...、logical_source、source。可以引用工具返回的公开依据或链接，但不得解释数据库结构或检索过程。
+必须先判断检索结果是否与用户问题直接相关。若结果不相关、无结果、相互冲突、来源不可追溯或工具失败，
+只用一两句话回答“当前知识库暂无相关记录”，不得列出、概述或提及任何无关命中项。
+若知识库存在相关记录但内容有限，直接基于已有记录简洁回答，不要解释检索过程，不得猜测或补全。
+回答仅用于科研辅助，不替代临床诊断或治疗决策。"""
 
-NO_EVIDENCE_MESSAGE = "数据库/向量库暂无可靠记录，无法形成有证据支持的中药毒理结论。"
+NO_EVIDENCE_MESSAGE = "当前知识库暂无相关记录。"
 CHAT_TOOL_ALLOWLIST = frozenset({"search_toxicology_knowledge"})
 _SENSITIVE_KEY = re.compile(r"token|secret|password|api[_-]?key|authorization|cookie", re.I)
 _SENSITIVE_TEXT = re.compile(r"(?i)(bearer\s+)[A-Za-z0-9._~+/=-]+")

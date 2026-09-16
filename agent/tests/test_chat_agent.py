@@ -158,7 +158,7 @@ def test_direct_answer_without_retrieval_is_blocked(service_factory: Any) -> Non
     result = service.get("direct")
     assert result.status == "completed"
     assert result.assistant_message == (
-        "数据库/向量库暂无可靠记录，无法形成有证据支持的中药毒理结论。"
+        "当前知识库暂无相关记录。"
     )
     assert [event.type for event in result.events] == [
         "node_start",
@@ -169,6 +169,10 @@ def test_direct_answer_without_retrieval_is_blocked(service_factory: Any) -> Non
     assert "模型常识" not in result.model_dump_json()
     assert llm.messages[0][0]["role"] == "system"
     assert "必须先调用 search_toxicology_knowledge" in llm.messages[0][0]["content"]
+    assert "禁止在回答中引用或展示任何内部 ID" in llm.messages[0][0]["content"]
+    assert "禁止引用或展示数据源路径" in llm.messages[0][0]["content"]
+    assert "不得列出、概述或提及任何无关命中项" in llm.messages[0][0]["content"]
+    assert "不要解释检索过程" in llm.messages[0][0]["content"]
     assert {item["function"]["name"] for item in service._tool_schemas()} == {
         "search_toxicology_knowledge"
     }
@@ -196,7 +200,7 @@ def test_empty_retrieval_result_is_blocked(service_factory: Any) -> None:
     assert service.wait_for_idle(2)
     result = service.get("empty")
     assert result.assistant_message == (
-        "数据库/向量库暂无可靠记录，无法形成有证据支持的中药毒理结论。"
+        "当前知识库暂无相关记录。"
     )
     assert "仍然给出" not in result.model_dump_json()
 
@@ -289,7 +293,7 @@ def test_sqlite_persistence(service_factory: Any) -> None:
     try:
         result = reopened.get("persisted")
         assert result.assistant_message == (
-            "数据库/向量库暂无可靠记录，无法形成有证据支持的中药毒理结论。"
+            "当前知识库暂无相关记录。"
         )
         assert result.events
     finally:
@@ -312,6 +316,6 @@ def test_ungrounded_stream_delta_is_not_persisted(service_factory: Any) -> None:
     assert service.wait_for_idle(2)
     completed = service.get("stream-persist")
     assert completed.assistant_message == (
-        "数据库/向量库暂无可靠记录，无法形成有证据支持的中药毒理结论。"
+        "当前知识库暂无相关记录。"
     )
     assert not [event for event in completed.events if event.type == "assistant_delta"]

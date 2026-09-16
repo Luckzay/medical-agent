@@ -124,8 +124,13 @@ def test_search_toxicology_hybrid_logic(temp_repo):
         assert len(output.results[0]["toxicity_mechanism"]) == 201
         assert output.results[0]["toxicity_mechanism"].endswith("…")
         assert "herb_id" not in output.results[0]
+        assert "document_id" not in output.results[0]
+        assert "reference" not in output.results[0]
         assert "logical_source" not in output.results[0]
+        assert "source" not in output.results[0]
         assert "compound_id" not in output.results[0]["toxic_compounds"][0]
+        assert "logical_source" not in output.results[0]["toxic_compounds"][0]
+        assert "source" not in output.results[0]["toxic_compounds"][0]
 
         # 2. Test FTS Match with Special Chars (should not crash)
         request = SearchMedicalKnowledgeInput(query="302-27-2", limit=10)

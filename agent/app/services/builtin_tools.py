@@ -30,7 +30,6 @@ TOXICOLOGY_COMPOUND_LIMIT = 5
 TOXICOLOGY_HERB_FIELDS = (
     "name",
     "common_name",
-    "reference",
     "virulence",
     "toxicity_mechanism",
     "symptom_contraindications",
@@ -47,7 +46,7 @@ def _truncate_toxicology_value(value: Any) -> Any:
     return f"{value[:TOXICOLOGY_FIELD_MAX_CHARS]}…"
 
 
-TOOL_VERSION = "1.3.1"
+TOOL_VERSION = "1.3.2"
 INTERNAL_TOOL_PERMISSIONS = frozenset(
     {
         "herbs:normalize",
@@ -262,8 +261,8 @@ def build_tool_registry(
             name="search_toxicology_knowledge",
             version=TOOL_VERSION,
             description=(
-                "检索毒理索引中的中药毒理记录，返回 herb_basic:id、"
-                "毒性字段、有毒成分及依据链接。"
+                "检索毒理知识库中的中药毒理记录，返回可公开展示的毒性字段、"
+                "有毒成分及依据链接；不返回内部标识或数据源路径。"
             ),
             input_model=SearchMedicalKnowledgeInput,
             output_model=SearchMedicalKnowledgeOutput,
