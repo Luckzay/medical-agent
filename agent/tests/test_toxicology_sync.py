@@ -77,6 +77,7 @@ def test_search_toxicology_hybrid_logic(temp_repo):
             "herb_name": "Aconite",
             "reference": "herb_basic:1",
             "virulence": "Extreme",
+            "toxicity_mechanism": "M" * 250,
             "toxic_compounds": [
                 {
                     "compound_id": 101,
@@ -98,7 +99,7 @@ def test_search_toxicology_hybrid_logic(temp_repo):
 
     # Mock settings and runtime
     with patch("app.services.builtin_tools.get_settings") as mock_settings, \
-         patch("app.services.builtin_tools.build_runtime") as mock_runtime:
+         patch("app.services.builtin_tools.get_vector_runtime") as mock_runtime:
 
         mock_settings.return_value.canonical_database_path = temp_repo.path
         mock_settings.return_value.vector_mode = "required"
@@ -120,6 +121,11 @@ def test_search_toxicology_hybrid_logic(temp_repo):
         assert len(output.results) == 1
         assert output.results[0]["name"] == "Aconite"
         assert output.results[0]["toxic_compounds"][0]["cas"] == "302-27-2"
+        assert len(output.results[0]["toxicity_mechanism"]) == 201
+        assert output.results[0]["toxicity_mechanism"].endswith("…")
+        assert "herb_id" not in output.results[0]
+        assert "logical_source" not in output.results[0]
+        assert "compound_id" not in output.results[0]["toxic_compounds"][0]
 
         # 2. Test FTS Match with Special Chars (should not crash)
         request = SearchMedicalKnowledgeInput(query="302-27-2", limit=10)
@@ -169,7 +175,7 @@ def test_search_toxicology_hybrid_logic(temp_repo):
 
 def test_search_toxicology_failure_handling(temp_repo):
     with patch("app.services.builtin_tools.get_settings") as mock_settings, \
-         patch("app.services.builtin_tools.build_runtime") as mock_runtime, \
+         patch("app.services.builtin_tools.get_vector_runtime") as mock_runtime, \
          patch("app.services.builtin_tools.SQLiteCanonicalRepository") as mock_repo_class:
 
         mock_settings.return_value.canonical_database_path = temp_repo.path

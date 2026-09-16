@@ -95,7 +95,7 @@ class SearchMedicalKnowledgeInput(BaseModel):
 
     query: str = Field(min_length=1, max_length=200)
     types: list[str] = Field(default_factory=list, max_length=6)
-    limit: int = Field(default=10, ge=1, le=50)
+    limit: int = Field(default=5, ge=1, le=50)
 
 
 class SearchMedicalKnowledgeOutput(BaseModel):

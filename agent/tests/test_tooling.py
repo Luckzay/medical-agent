@@ -11,6 +11,7 @@ from app.core.config import Settings
 from app.models.tooling import (
     NormalizeHerbsInput,
     RetryPolicy,
+    SearchMedicalKnowledgeInput,
     SkillDefinition,
     ToolDefinition,
     ToolExecutionContext,
@@ -59,6 +60,10 @@ def context() -> ToolExecutionContext:
     return ToolExecutionContext(
         run_id="run-tool-test", node="test", permissions=frozenset({"test:execute"})
     )
+
+
+def test_search_knowledge_default_limit_is_five() -> None:
+    assert SearchMedicalKnowledgeInput(query="黄芪").limit == 5
 
 
 def test_registry_rejects_conflicts_and_unknown_skill_tools() -> None:

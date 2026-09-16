@@ -24,7 +24,30 @@ from app.services.tool_registry import ToolRegistry
 
 logger = logging.getLogger(__name__)
 
-TOOL_VERSION = "1.3.0"
+TOXICOLOGY_RESULT_LIMIT = 5
+TOXICOLOGY_FIELD_MAX_CHARS = 200
+TOXICOLOGY_COMPOUND_LIMIT = 5
+TOXICOLOGY_HERB_FIELDS = (
+    "name",
+    "common_name",
+    "reference",
+    "virulence",
+    "toxicity_mechanism",
+    "symptom_contraindications",
+    "adr",
+    "clinical_suggestion",
+    "clinical_suggestion_basis",
+    "link_to_clinical_suggestion",
+)
+
+
+def _truncate_toxicology_value(value: Any) -> Any:
+    if not isinstance(value, str) or len(value) <= TOXICOLOGY_FIELD_MAX_CHARS:
+        return value
+    return f"{value[:TOXICOLOGY_FIELD_MAX_CHARS]}…"
+
+
+TOOL_VERSION = "1.3.1"
 INTERNAL_TOOL_PERMISSIONS = frozenset(
     {
         "herbs:normalize",
@@ -61,6 +84,7 @@ def build_tool_registry(
     def search_toxicology_knowledge(
         request: SearchMedicalKnowledgeInput,
     ) -> SearchMedicalKnowledgeOutput:
+        result_limit = min(request.limit, TOXICOLOGY_RESULT_LIMIT)
         lexical_ids: list[str] = []
         exact_boosts: dict[str, tuple[str, ...]] = {}
 
@@ -106,7 +130,7 @@ def build_tool_registry(
                     "SELECT h.reference FROM toxicology_herbs h "
                     "JOIN toxicology_fts f ON h.herb_id = f.herb_id "
                     "WHERE toxicology_fts MATCH ? ORDER BY rank LIMIT ?",
-                    (fts_query, request.limit * 2)
+                    (fts_query, result_limit * 2)
                 ).fetchall()
                 for row in fts_rows:
                     ref = str(row["reference"])
@@ -145,7 +169,7 @@ def build_tool_registry(
                             settings.qdrant_collection_alias,
                             vector.embedding.embed_query(request.query),
                             scope,
-                            request.limit * 2,
+                            result_limit * 2,
                         )
                         # Map chunk_ids to references
                         c_ids = [hit.chunk_id for hit in hits]
@@ -171,7 +195,7 @@ def build_tool_registry(
 
         # 4. Resolve full records
         results: list[dict[str, Any]] = []
-        top_refs = [item.identifier for item in fused[:request.limit]]
+        top_refs = [item.identifier for item in fused[:result_limit]]
         if top_refs:
             marks = ",".join("?" for _ in top_refs)
             herb_rows = canonical.connection.execute(
@@ -181,16 +205,29 @@ def build_tool_registry(
 
             herbs_by_ref = {}
             for row in herb_rows:
-                h = dict(row)
-                h_id = h["herb_id"]
-                # Get compounds
+                raw_herb = dict(row)
+                h_id = raw_herb["herb_id"]
+                herb = {
+                    field: _truncate_toxicology_value(raw_herb[field])
+                    for field in TOXICOLOGY_HERB_FIELDS
+                    if raw_herb.get(field) is not None
+                }
+                # Keep only LLM-relevant compound fields and cap nested records.
                 c_rows = canonical.connection.execute(
-                    "SELECT compound_id, name, formula, cas, logical_source "
-                    "FROM toxicology_compounds WHERE herb_id = ?",
-                    (h_id,)
+                    "SELECT name, formula, cas "
+                    "FROM toxicology_compounds WHERE herb_id = ? "
+                    "ORDER BY compound_id LIMIT ?",
+                    (h_id, TOXICOLOGY_COMPOUND_LIMIT),
                 ).fetchall()
-                h["toxic_compounds"] = [dict(r) for r in c_rows]
-                herbs_by_ref[h["reference"]] = h
+                herb["toxic_compounds"] = [
+                    {
+                        key: _truncate_toxicology_value(value)
+                        for key, value in dict(compound).items()
+                        if value is not None
+                    }
+                    for compound in c_rows
+                ]
+                herbs_by_ref[raw_herb["reference"]] = herb
 
             results = [herbs_by_ref[ref] for ref in top_refs if ref in herbs_by_ref]
 
