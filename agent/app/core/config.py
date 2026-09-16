@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     llm_stream_mode: Literal["optional", "required"] = "optional"
     knowledge_api_url: str = "http://127.0.0.1:8080/internal/v1/knowledge/search"
     knowledge_timeout_seconds: float = Field(default=10.0, gt=0.0, le=120.0)
+    toxicology_tool_timeout_seconds: float = Field(default=30.0, gt=0.0, le=120.0)
     chat_max_agent_rounds: int = Field(default=8, ge=1, le=32)
     chat_max_tool_calls: int = Field(default=12, ge=1, le=64)
     chat_event_payload_chars: int = Field(default=4000, ge=256, le=32768)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from functools import lru_cache
 from uuid import uuid4
 
 from qdrant_client import QdrantClient
@@ -62,3 +63,12 @@ def build_runtime(settings: Settings | None = None) -> VectorRuntime:
         source_snapshot="pending",
     )
     return VectorRuntime(embedding, store, manifest)
+
+
+@lru_cache(maxsize=1)
+def get_vector_runtime() -> VectorRuntime:
+    return build_runtime(get_settings())
+
+
+def warm_vector_runtime() -> None:
+    get_vector_runtime().embedding.embed_query("中药毒理知识检索预热")

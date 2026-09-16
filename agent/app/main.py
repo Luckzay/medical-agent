@@ -1,3 +1,5 @@
+import asyncio
+import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from secrets import compare_digest
@@ -11,6 +13,9 @@ from app.api.routes import chat_service, router
 from app.core.config import get_settings
 from app.services.mcp_server import RestartableMCPApplication
 from app.services.run_service import run_service
+from app.services.runtime import warm_vector_runtime
+
+logger = logging.getLogger(__name__)
 
 settings = get_settings()
 mcp_application = RestartableMCPApplication(run_service.runtime)
@@ -21,6 +26,13 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     async with mcp_application.lifespan():
         run_service.recover_running_tasks()
         chat_service.recover_pending_tasks()
+        if settings.vector_mode != "disabled":
+            try:
+                await asyncio.to_thread(warm_vector_runtime)
+            except Exception:
+                if settings.vector_mode == "required":
+                    raise
+                logger.exception("Vector runtime warm-up failed; continuing in optional mode")
         try:
             yield
         finally:

@@ -19,7 +19,7 @@ from app.models.tooling import (
 from app.services.analysis_service import AnalysisService
 from app.services.hybrid_retrieval import reciprocal_rank_fusion
 from app.services.knowledge_repository import SQLiteCanonicalRepository
-from app.services.runtime import build_runtime
+from app.services.runtime import get_vector_runtime
 from app.services.tool_registry import ToolRegistry
 
 logger = logging.getLogger(__name__)
@@ -126,7 +126,7 @@ def build_tool_registry(
         vector_failed = False
         if settings.vector_mode != "disabled":
             try:
-                vector = build_runtime(settings)
+                vector = get_vector_runtime()
                 if vector.store is not None and vector.manifest is not None:
                     # Snapshot check
                     sq_row = canonical.connection.execute(
@@ -231,8 +231,8 @@ def build_tool_registry(
             input_model=SearchMedicalKnowledgeInput,
             output_model=SearchMedicalKnowledgeOutput,
             required_permissions=frozenset({"knowledge:search"}),
-            timeout_seconds=10.0,
-            retry_policy=RetryPolicy(max_retries=1),
+            timeout_seconds=settings.toxicology_tool_timeout_seconds,
+            retry_policy=RetryPolicy(max_retries=0),
             handler=search_toxicology_knowledge,
         )
     )
