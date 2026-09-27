@@ -14,7 +14,7 @@ from app.core.config import Settings
 from app.main import app
 from app.models.chat import ChatTurnCreate
 from app.models.tooling import ToolDefinition
-from app.services.chat_repository import SQLiteChatRepository
+from app.services.chat_repository import MySQLChatRepository
 from app.services.chat_service import ChatTurnService
 from app.services.llm_proxy import LLMChatResult, LLMToolCall, LLMToolCallFunction
 from app.services.tool_registry import ToolRegistry
@@ -23,11 +23,13 @@ from app.services.tool_runtime import ToolRuntime
 
 class EchoInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    value: str
+    query: str
+    types: list[str] = []
+    limit: int = 10
 
 
 class EchoOutput(BaseModel):
-    value: str
+    results: list[dict[str, Any]]
 
 
 class ScriptedLLM:
@@ -73,7 +75,8 @@ def tool_call(call_id: str = "call-1", value: str = "黄芪") -> LLMChatResult:
             LLMToolCall(
                 id=call_id,
                 function=LLMToolCallFunction(
-                    name="normalize_herbs", arguments=f'{{"value":"{value}"}}'
+                    name="search_toxicology_knowledge",
+                    arguments=f'{{"query":"{value}","types":["herbs"],"limit":10}}',
                 ),
             )
         ]
@@ -91,14 +94,11 @@ def service_factory(tmp_path: Path) -> Iterator[Any]:
         max_rounds: int = 8,
         max_calls: int = 12,
         gate: tuple[Event, Event] | None = None,
-    ) -> tuple[ChatTurnService, ScriptedLLM, Path]:
-        database = tmp_path / f"chat-{len(services)}.db"
+    ) -> tuple[ChatTurnService, ScriptedLLM, MySQLChatRepository]:
+        repository = MySQLChatRepository()
         settings = Settings(
             internal_token="test-only-agent-token",
-            database_path=database,
-            checkpoint_path=tmp_path / "checkpoints.db",
-            evidence_database_path=tmp_path / "evidence.db",
-            canonical_database_path=tmp_path / "canonical.db",
+            testing=True,
             chat_max_agent_rounds=max_rounds,
             chat_max_tool_calls=max_calls,
         )
@@ -107,24 +107,37 @@ def service_factory(tmp_path: Path) -> Iterator[Any]:
         def echo(request: EchoInput) -> EchoOutput:
             if handler is not None:
                 return handler(request)
-            return EchoOutput(value=request.value)
+            return EchoOutput(
+                results=[
+                    {
+                        "title": request.query,
+                        "virulence": "有毒",
+                        "reference": "herb_basic:1",
+                    }
+                ]
+            )
 
         registry.register_tool(
             ToolDefinition[EchoInput, EchoOutput](
-                name="normalize_herbs",
+                name="search_toxicology_knowledge",
                 version="test",
-                description="只读回显测试工具",
+                description="只读中药毒理检索测试工具",
                 input_model=EchoInput,
                 output_model=EchoOutput,
-                required_permissions=frozenset({"herbs:normalize"}),
+                required_permissions=frozenset({"knowledge:search"}),
                 handler=echo,
             )
         )
-        runtime = ToolRuntime(registry, database)
+        runtime = ToolRuntime(registry)
         llm = ScriptedLLM(responses, gate)
-        service = ChatTurnService(runtime, settings=settings, llm=llm)  # type: ignore[arg-type]
+        service = ChatTurnService(
+            runtime,
+            settings=settings,
+            repository=repository,
+            llm=llm,  # type: ignore[arg-type]
+        )
         services.append(service)
-        return service, llm, database
+        return service, llm, repository
 
     yield factory
     for service in services:
@@ -141,23 +154,31 @@ def request(turn_id: str) -> ChatTurnCreate:
     )
 
 
-def test_direct_answer(service_factory: Any) -> None:
-    service, llm, _ = service_factory([LLMChatResult(content="直接回答")])
+def test_direct_answer_without_retrieval_is_blocked(service_factory: Any) -> None:
+    service, llm, _ = service_factory([LLMChatResult(content="模型常识毒理结论")])
     assert service.create(request("direct")).status == "pending"
     assert service.wait_for_idle(2)
     result = service.get("direct")
     assert result.status == "completed"
-    assert result.assistant_message == "直接回答"
+    assert result.assistant_message == (
+        "当前知识库暂无相关记录。"
+    )
     assert [event.type for event in result.events] == [
         "node_start",
         "llm_start",
-        "assistant_delta",
         "llm_end",
         "node_end",
     ]
-    assert result.events[2].delta == "直接回答"
-    assert result.events[2].detail == "LLM 内容增量"
+    assert "模型常识" not in result.model_dump_json()
     assert llm.messages[0][0]["role"] == "system"
+    assert "必须先调用 search_toxicology_knowledge" in llm.messages[0][0]["content"]
+    assert "禁止在回答中引用或展示任何内部 ID" in llm.messages[0][0]["content"]
+    assert "禁止引用或展示数据源路径" in llm.messages[0][0]["content"]
+    assert "不得列出、概述或提及任何无关命中项" in llm.messages[0][0]["content"]
+    assert "不要解释检索过程" in llm.messages[0][0]["content"]
+    assert {item["function"]["name"] for item in service._tool_schemas()} == {
+        "search_toxicology_knowledge"
+    }
 
 
 def test_single_tool(service_factory: Any) -> None:
@@ -171,6 +192,20 @@ def test_single_tool(service_factory: Any) -> None:
     assert result.assistant_message == "已引用工具结果回答"
     assert len([event for event in result.events if event.type == "tool_call"]) == 1
     assert llm.messages[1][-1]["role"] == "tool"
+
+
+def test_empty_retrieval_result_is_blocked(service_factory: Any) -> None:
+    service, _, _ = service_factory(
+        [tool_call(), LLMChatResult(content="仍然给出毒理结论")],
+        handler=lambda _request: EchoOutput(results=[]),
+    )
+    service.create(request("empty"))
+    assert service.wait_for_idle(2)
+    result = service.get("empty")
+    assert result.assistant_message == (
+        "当前知识库暂无相关记录。"
+    )
+    assert "仍然给出" not in result.model_dump_json()
 
 
 def test_single_and_multi_tool_loop(service_factory: Any) -> None:
@@ -253,20 +288,22 @@ def test_event_increment_and_auth(service_factory: Any) -> None:
         app.dependency_overrides.pop(get_chat_service, None)
 
 
-def test_sqlite_persistence(service_factory: Any) -> None:
+def test_mysql_persistence(service_factory: Any) -> None:
     service, _, database = service_factory([LLMChatResult(content="持久化回答")])
     service.create(request("persisted"))
     assert service.wait_for_idle(2)
-    reopened = SQLiteChatRepository(database)
+    reopened = MySQLChatRepository()
     try:
         result = reopened.get("persisted")
-        assert result.assistant_message == "持久化回答"
+        assert result.assistant_message == (
+            "当前知识库暂无相关记录。"
+        )
         assert result.events
     finally:
         reopened.close()
 
 
-def test_assistant_delta_is_persisted_immediately_and_redacted(service_factory: Any) -> None:
+def test_ungrounded_stream_delta_is_not_persisted(service_factory: Any) -> None:
     emitted, release = Event(), Event()
     service, _, _ = service_factory([])
     service._llm = StreamingGateLLM(emitted, release)
@@ -274,20 +311,14 @@ def test_assistant_delta_is_persisted_immediately_and_redacted(service_factory: 
         service.create(request("stream-persist"))
         assert emitted.wait(2)
         current = service.get("stream-persist")
-        delta_events = [event for event in current.events if event.type == "assistant_delta"]
         assert current.status == "running"
-        assert len(delta_events) == 1
-        assert delta_events[0].sequence == 3
-        assert delta_events[0].node == "agent"
-        assert delta_events[0].status == "streaming"
-        assert delta_events[0].detail == "LLM 内容增量"
-        assert delta_events[0].delta == "首个 token=[REDACTED]"
+        assert not [event for event in current.events if event.type == "assistant_delta"]
         assert "secret-value" not in current.model_dump_json()
     finally:
         release.set()
     assert service.wait_for_idle(2)
     completed = service.get("stream-persist")
-    assert [event.delta for event in completed.events if event.type == "assistant_delta"] == [
-        "首个 token=[REDACTED]",
-        "完成",
-    ]
+    assert completed.assistant_message == (
+        "当前知识库暂无相关记录。"
+    )
+    assert not [event for event in completed.events if event.type == "assistant_delta"]

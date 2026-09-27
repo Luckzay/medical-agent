@@ -57,6 +57,9 @@ coverage/
 # Docker local overrides
 docker-compose.override.yml
 
+# Local agent environments
+agent/.venv-real/
+
 # Logs and temporary files
 *.log
 *.tmp

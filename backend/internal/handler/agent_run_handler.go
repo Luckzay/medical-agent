@@ -27,10 +27,24 @@ func NewAgentRunHandler(svc agentRunService) *AgentRunHandler {
 }
 
 type createAgentRunRequest struct {
-	Herbs        []string `json:"herbs"`
-	ResearchGoal string   `json:"research_goal"`
+	Herbs        []string `json:"herbs" example:"麻黄,桂枝"`
+	ResearchGoal string   `json:"research_goal" example:"分析麻黄桂枝汤的现代药理作用机制"`
 }
 
+// Create godoc
+// @Summary      创建 Agent Run
+// @Description  提交研究目标和相关药物，开始异步分析任务
+// @Tags         agent
+// @Accept       json
+// @Produce      json
+// @Param        request  body      createAgentRunRequest  true  "创建请求"
+// @Param        Idempotency-Key  header  string  false  "幂等性密钥"
+// @Success      202  {object}  object{data=model.AgentRunResponse}
+// @Failure      400  {object}  object{error=string}
+// @Failure      409  {object}  object{error=string}
+// @Failure      502  {object}  object{error=string}
+// @Security     BearerAuth
+// @Router       /api/agent/runs [post]
 func (h *AgentRunHandler) Create(c *gin.Context) {
 	userID, ok := currentUserID(c)
 	if !ok {
@@ -80,6 +94,18 @@ func (h *AgentRunHandler) Create(c *gin.Context) {
 	c.JSON(http.StatusAccepted, gin.H{"data": result})
 }
 
+// Get godoc
+// @Summary      获取 Agent Run 详情
+// @Description  根据任务 ID 获取异步分析任务的状态和结果
+// @Tags         agent
+// @Accept       json
+// @Produce      json
+// @Param        run_id  path      string  true  "任务 ID"
+// @Success      200  {object}  object{data=model.AgentRunResponse}
+// @Failure      400  {object}  object{error=string}
+// @Failure      404  {object}  object{error=string}
+// @Security     BearerAuth
+// @Router       /api/agent/runs/{run_id} [get]
 func (h *AgentRunHandler) Get(c *gin.Context) {
 	userID, ok := currentUserID(c)
 	if !ok {
@@ -103,6 +129,19 @@ func (h *AgentRunHandler) Get(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": result})
 }
 
+// Resume godoc
+// @Summary      恢复失败的 Agent Run
+// @Description  重新启动状态为失败的任务
+// @Tags         agent
+// @Accept       json
+// @Produce      json
+// @Param        run_id  path      string  true  "任务 ID"
+// @Success      200  {object}  object{data=model.AgentRunResponse}
+// @Failure      400  {object}  object{error=string}
+// @Failure      404  {object}  object{error=string}
+// @Failure      409  {object}  object{error=string}
+// @Security     BearerAuth
+// @Router       /api/agent/runs/{run_id}/resume [post]
 func (h *AgentRunHandler) Resume(c *gin.Context) {
 	userID, ok := currentUserID(c)
 	if !ok {

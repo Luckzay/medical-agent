@@ -1,3 +1,5 @@
+import asyncio
+import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from secrets import compare_digest
@@ -11,6 +13,9 @@ from app.api.routes import chat_service, router
 from app.core.config import get_settings
 from app.services.mcp_server import RestartableMCPApplication
 from app.services.run_service import run_service
+from app.services.runtime import warm_vector_runtime
+
+logger = logging.getLogger(__name__)
 
 settings = get_settings()
 mcp_application = RestartableMCPApplication(run_service.runtime)
@@ -21,6 +26,13 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     async with mcp_application.lifespan():
         run_service.recover_running_tasks()
         chat_service.recover_pending_tasks()
+        if settings.vector_mode != "disabled":
+            try:
+                await asyncio.to_thread(warm_vector_runtime)
+            except Exception:
+                if settings.vector_mode == "required":
+                    raise
+                logger.exception("Vector runtime warm-up failed; continuing in optional mode")
         try:
             yield
         finally:
@@ -28,13 +40,27 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
             chat_service.close()
             run_service.shutdown(wait=True)
             run_service.runtime.close()
-            run_service.evidence_store.close()
 
 
 app = FastAPI(
-    title=settings.service_name,
+    title="Medical Agent Service",
+    description="""
+中药科研辅助智能体服务。
+当前版本集成了**活跃的中药毒理专家**能力，支持基于知识库的异步对话、成分分析以及知识库入库与索引管理。
+注意：**超分子文献检索与诊断功能已暂时下线**。
+除 `/health` 接口外，所有 `/internal/v1/*` 接口均需通过 `X-Agent-Token` 进行鉴权。
+""",
     version=settings.service_version,
     lifespan=lifespan,
+    openapi_tags=[
+        {"name": "Chat", "description": "智能体异步对话接口"},
+        {"name": "Runs", "description": "长耗时分析任务管理"},
+        {"name": "Ingestion", "description": "知识库文档异步入库"},
+        {"name": "Documents", "description": "规范化文档与版本管理"},
+        {"name": "Index Management", "description": "向量索引底交代号与同步管理"},
+        {"name": "Metadata", "description": "工具与技能元数据查询"},
+        {"name": "Service", "description": "服务基础功能"},
+    ],
 )
 app.include_router(router)
 app.include_router(management_router)

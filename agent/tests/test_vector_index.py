@@ -4,6 +4,7 @@ import hashlib
 from pathlib import Path
 
 import pytest
+from qdrant_client import QdrantClient
 
 from app.models.knowledge import (
     DocumentChunk,
@@ -17,7 +18,7 @@ from app.services.embeddings import (
     EmbeddingValidationError,
     LazySentenceTransformerEmbedding,
 )
-from app.services.knowledge_repository import SQLiteCanonicalRepository
+from app.services.knowledge_repository import MySQLCanonicalRepository
 from app.services.vector_index import IndexManager, ManifestMismatchError, QdrantVectorStore
 
 
@@ -78,7 +79,7 @@ def test_embedding_is_lazy_validated_deterministic_and_cached(tmp_path: Path) ->
     assert len(real.embed_query("query")) == 8 and loaded == 1
     assert real._instance is not None
     assert real._instance.max_seq_length == 512
-    repo = SQLiteCanonicalRepository(tmp_path / "cache.db")
+    repo = MySQLCanonicalRepository()
     vector = test.embed_query("cache")
     digest = hashlib.sha256(b"cache").hexdigest()
     repo.cache_embedding(digest, test.fingerprint, vector)
@@ -122,3 +123,29 @@ def test_failed_rebuild_never_activates() -> None:
     with pytest.raises((ValueError, EmbeddingValidationError)):
         IndexManager(store).rebuild(manifest("bad", embedding.fingerprint), [chunk], [[1.0]])
     assert store.alias_targets["active"] == "old"
+
+
+def test_qdrant_payload_contains_stable_toxicology_reference(tmp_path: Path) -> None:
+    from app.scripts.build_toxicology_index import sync_structured_mysql
+
+    repository = MySQLCanonicalRepository()
+    sync_structured_mysql(
+        repository,
+        [{"id": 1, "herb_name": "附子", "reference": "herb_basic:1", "toxic_compounds": []}],
+        "medical",
+        "snapshot",
+    )
+    store = QdrantVectorStore(QdrantClient(":memory:"), repository)
+    embedding = DeterministicTestEmbedding(8)
+    scope = OwnershipScope(tenant_id="default", project_id="toxicology")
+    chunk = item(scope, "split").model_copy(
+        update={"locator": SourceLocator(source_uri="mysql://medical/herb_basic/1")}
+    )
+    index = manifest("toxicology-reference", embedding.fingerprint)
+    vector = embedding.embed_query(chunk.text)
+
+    store.upsert(index, [chunk], [vector])
+    hit = store.search(index.collection_name, vector, scope, 1)[0]
+
+    assert hit.payload["logical_source"] == "mysql://medical/herb_basic/1"
+    assert hit.payload["reference"] == "herb_basic:1"

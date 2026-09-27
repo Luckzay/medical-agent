@@ -20,13 +20,13 @@ Go backend 创建 Agent Run
   -> LangGraph 工作流按节点执行
   -> evidence 节点触发 RAG 检索
   -> proposal/review/finalize 消费检索结果
-  -> SQLite 持久化最终结果与 workflow 元数据
+  -> MySQL 持久化最终结果与 workflow 元数据
 ```
 
 当前默认配置下，RAG 主要走：
 
 ```text
-SQLite FTS5 词法检索
+Elasticsearch 词法检索
 ```
 
 只有在 `AGENT_VECTOR_MODE=optional|required` 时，才会启用：
@@ -81,7 +81,7 @@ Embedding -> Qdrant 向量检索 -> RRF 融合 -> 可选 Reranker
 ```text
 1. Go backend -> POST /internal/v1/runs
 2. FastAPI route 调用 RunService.create()
-3. RunService 在 agent_runs.db 中创建一条 running 记录
+3. RunService 在 MySQL `agent_workflow_runs` 表 中创建一条 running 记录
 4. RunService 把任务提交给线程池
 5. 后台线程执行 LangGraphAnalysisWorkflow.invoke()
 6. 工作流依次执行：
@@ -92,7 +92,7 @@ Embedding -> Qdrant 向量检索 -> RRF 融合 -> 可选 Reranker
    -> proposal
    -> review
    -> finalize
-7. RunService 把 analysis_result、workflow、status 写回 SQLite
+7. RunService 把 analysis_result、workflow、status 写回 MySQL
 8. Go backend 通过 GET /internal/v1/runs/{run_id} 拉取结果
 ```
 
@@ -153,7 +153,7 @@ agent/app/services/run_service.py
 
 ### 5.1 create 阶段
 
-`RunService.create()` 会先调用 `SQLiteRunRepository.create()`，在 `agent_runs.db` 中创建一条 `running` 记录：
+`RunService.create()` 会先调用 `MySQLRunRepository.create()`，在 MySQL `agent_workflow_runs` 表中创建一条 `running` 记录：
 
 ```text
 status = RUNNING
@@ -237,7 +237,7 @@ START
 
 ### 6.3 checkpoint
 
-工作流通过 `SqliteSaver` 使用 `run_id` 作为 `thread_id` 保存 checkpoint，因此：
+工作流通过 `RedisSaver` 使用 `run_id` 作为 `thread_id` 保存 checkpoint，因此：
 
 - 服务重启后可恢复
 - `resume(run_id)` 可以从 checkpoint 继续
@@ -449,7 +449,7 @@ vector:
   分析两味药的主要成分；中药：黄芪、当归；候选成分：黄芪甲苷、阿魏酸；SMILES：...
 ```
 
-## 9. 第一层召回：SQLite FTS5 词法检索
+## 9. 第一层召回：Elasticsearch 词法检索
 
 文件：
 
@@ -459,7 +459,7 @@ agent/app/services/evidence_store.py
 
 ### 9.1 文献索引来源
 
-当前文献源来自 Excel，经 `EvidenceStore.ensure_index()` 导入 SQLite。
+当前结构化文献源先写入 MySQL canonical tables，再构建 Elasticsearch 词法索引。
 
 导入时会：
 
@@ -812,7 +812,7 @@ agent/app/services/tool_runtime.py
 4. 输出 schema 校验
 5. 超时控制
 6. retry
-7. SQLite 审计落库
+7. MySQL 审计落库
 
 审计记录包含：
 
@@ -840,7 +840,7 @@ agent/app/services/tool_runtime.py
 
 ### 18.1 Run 持久化
 
-`run_repository.py` 使用 SQLite 保存：
+`run_repository.py` 使用 MySQL 保存：
 
 - `run_id`
 - `user_id`
@@ -855,7 +855,7 @@ agent/app/services/tool_runtime.py
 
 ### 18.2 Workflow checkpoint
 
-LangGraph 使用独立的 checkpoint SQLite 保存节点执行进度。
+LangGraph 使用独立的 Redis checkpoint 保存节点执行进度。
 
 ### 18.3 服务重启恢复
 
@@ -887,7 +887,7 @@ run_service.recover_running_tasks()
 这些调用的底层是：
 
 - Python 规则
-- SQLite 检索
+- Elasticsearch 检索
 - 可选 Qdrant 向量检索
 - 可选 RDKit
 - 可选 PubChem
@@ -918,7 +918,7 @@ LangGraph 编排的确定性科研工作流
   -> Go backend 创建 run_id
   -> Python /internal/v1/runs
   -> RunService.create
-  -> SQLiteRunRepository.create(status=running)
+  -> MySQLRunRepository.create(status=running)
   -> LangGraph.invoke
       -> normalize
       -> discover
@@ -944,7 +944,7 @@ LangGraph 编排的确定性科研工作流
 
 ```text
 工作流 evidence 节点基于研究目标、药材、化合物和 SMILES 构造结构化检索请求，
-先走 SQLite FTS5 词法召回，再按配置选择是否叠加 Embedding + Qdrant 向量召回、
+先走 Elasticsearch 词法召回，再按配置选择是否叠加 Embedding + Qdrant 向量召回、
 RRF 融合和可选 reranker，最后把命中文献绑定回候选化合物与 claims，
 供后续 proposal/review/finalize 使用。
 ```

@@ -2,7 +2,7 @@
 
 ## 安全默认与模式
 
-`AGENT_VECTOR_MODE=disabled` 是默认值，服务仅使用现有 SQLite FTS5，完全离线可运行。`optional` 在 Qdrant 或 Embedding 不可用时继续 lexical 检索并返回 degraded diagnostics；`required` 用于通过上线门禁后的环境，依赖不健康时 readiness 必须失败。
+`AGENT_VECTOR_MODE=disabled` 是默认值，服务仅使用 Elasticsearch 词法检索。`optional` 在 Qdrant 或 Embedding 不可用时继续词法检索并返回 degraded diagnostics；`required` 用于通过上线门禁后的环境，依赖不健康时 readiness 必须失败。
 
 生产 Embedding 通过配置选择。开发推荐候选为 `intfloat/multilingual-e5-small`，但这不是未经评测的生产结论。模型、revision、维度、归一化与指令模板均进入 fingerprint；任一变化都要求新 collection generation。
 
@@ -24,15 +24,15 @@ AGENT_VECTOR_MODE=optional
 
 Qdrant 不向宿主机发布端口，持久化卷为 `qdrant_data`。测试使用 `QdrantClient(":memory:")` 与 deterministic test embedding，不下载模型、不使用随机向量。
 
-## 迁移
+## 数据准备
+
+Canonical 文档和版本元数据写入 MySQL。毒理索引通过以下命令从业务 MySQL 读取记录并构建 Elasticsearch；如需向量检索，可追加 `qdrant` target：
 
 ```bash
-uv run python -m app.scripts.migrate_literature \
-  --source resources/literature/TCM_Supramolecular_Literature_Search_EN_v3_filled.xlsx \
-  --database data/canonical_knowledge.db
+uv run python -m app.scripts.build_toxicology_index --targets elasticsearch,qdrant
 ```
 
-命令按 source hash、UUIDv5 与 upsert 规则可重复执行，并报告 blocks/chunks/legacy mappings/resolved mappings。
+命令按 source snapshot 与 generation 可重复执行，并在校验成功后原子切换索引 alias。
 
 ## Rebuild、Rollback 与 Reconcile
 
@@ -43,16 +43,11 @@ uv run python -m app.scripts.migrate_literature \
 - `POST /internal/v1/evidence/indexes/reconcile`：按 ownership scope 比较 canonical ready chunks 与 point，移除孤儿点。
 - `GET /internal/v1/evidence/indexes/status`：查看模式、manifest 和 degraded 状态。
 
-紧急回滚：先将 `AGENT_VECTOR_MODE=disabled`，再请求 rollback；canonical SQLite 与 FTS5 始终可用。
+紧急回滚：将 Elasticsearch read alias 原子切回上一健康 generation；canonical MySQL 记录不受影响。
 
 ## Shadow 与质量门禁
 
-```bash
-uv run python -m app.scripts.shadow_retrieval --source <xlsx> \
-  --evidence-database data/evidence.db --query "licorice assembly"
-```
-
-Shadow 只记录 lexical/hybrid diagnostics，`agent_results_changed` 必须为 false。只有 evaluation fixture 的 Recall@K、MRR、exact DOI/SMILES、删除与权限隔离全部达到记录阈值后，才能从 disabled 升为 optional/hybrid；当前默认保持 disabled。
+Shadow 比较应针对 Elasticsearch 词法结果与 hybrid 结果执行，并只记录安全 diagnostics。`agent_results_changed` 必须为 false。只有 evaluation fixture 的 Recall@K、MRR、exact DOI/SMILES、删除与权限隔离全部达到记录阈值后，才能从 disabled 升为 optional/hybrid；当前默认保持 disabled。
 
 ## 安全与可观测性
 
@@ -65,7 +60,7 @@ Shadow 只记录 lexical/hybrid diagnostics，`agent_results_changed` 必须为 
 ## 文件职责
 
 - `app/models/knowledge.py`：canonical lifecycle、manifest、diagnostics 模型。
-- `app/services/knowledge_repository.py`：SQLite source of truth 与 scope enforcement。
+- `app/services/knowledge_repository.py`：MySQL source of truth 与 scope enforcement。
 - `app/services/document_processing.py`：parser registry 与 structure-first chunking。
 - `app/services/embeddings.py`：lazy real provider 与 deterministic test provider。
 - `app/services/vector_index.py`：Qdrant collections、alias、rebuild、rollback、reconcile。

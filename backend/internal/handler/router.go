@@ -15,7 +15,7 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
-// @BasePath /api
+// @BasePath /
 func SetupRouter(cfg *config.Config) *gin.Engine {
 	r := gin.New()
 	r.Use(middleware.Recovery())

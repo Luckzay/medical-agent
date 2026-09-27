@@ -7,7 +7,7 @@ from uuid import NAMESPACE_URL, uuid5
 from qdrant_client import QdrantClient, models
 
 from app.models.knowledge import DocumentChunk, IndexManifest, ManifestStatus, OwnershipScope
-from app.services.knowledge_repository import SQLiteCanonicalRepository
+from app.services.knowledge_repository import MySQLCanonicalRepository
 
 
 class ManifestMismatchError(ValueError):
@@ -38,7 +38,7 @@ def assert_manifest_compatible(expected: IndexManifest, actual: IndexManifest) -
 
 class QdrantVectorStore:
     def __init__(
-        self, client: QdrantClient, repository: SQLiteCanonicalRepository | None = None
+        self, client: QdrantClient, repository: MySQLCanonicalRepository | None = None
     ) -> None:
         self.client = client
         self.repository = repository
@@ -81,6 +81,8 @@ class QdrantVectorStore:
             "document_id",
             "version_id",
             "chunk_id",
+            "logical_source",
+            "reference",
             "status",
             "generation",
         ):
@@ -115,6 +117,12 @@ class QdrantVectorStore:
         assert_manifest_compatible(manifest, self.manifests[manifest.collection_name])
         if len(chunks) != len(vectors):
             raise ValueError("chunk/vector count mismatch")
+        logical_sources = [chunk.locator.source_uri for chunk in chunks]
+        references = (
+            self.repository.resolve_toxicology_references(logical_sources)
+            if self.repository is not None
+            else {}
+        )
         points: list[models.PointStruct] = []
         for chunk, vector in zip(chunks, vectors, strict=True):
             if len(vector) != manifest.dimension:
@@ -123,12 +131,16 @@ class QdrantVectorStore:
                 "tenant_id": chunk.scope.tenant_id,
                 "project_id": chunk.scope.project_id,
                 "document_id": chunk.locator.source_uri,
+                "logical_source": chunk.locator.source_uri,
                 "version_id": chunk.version_id,
                 "chunk_id": chunk.chunk_id,
                 "status": "ready",
                 "generation": manifest.generation,
                 "content_hash": chunk.content_hash,
             }
+            reference = references.get(chunk.locator.source_uri)
+            if reference is not None:
+                payload["reference"] = reference
             points.append(
                 models.PointStruct(
                     id=self.point_id(chunk, manifest),
@@ -167,15 +179,21 @@ class QdrantVectorStore:
             limit=limit,
             with_payload=True,
         )
-        return [
-            QdrantCandidate(
-                chunk_id=str((point.payload or {})["chunk_id"]),
-                score=float(point.score),
-                point_id=str(point.id),
-                payload=dict(point.payload or {}),
+        candidates: list[QdrantCandidate] = []
+        for point in response.points:
+            payload = dict(point.payload or {})
+            chunk_id = payload.get("chunk_id")
+            if not isinstance(chunk_id, str) or not chunk_id:
+                continue
+            candidates.append(
+                QdrantCandidate(
+                    chunk_id=chunk_id,
+                    score=float(point.score),
+                    point_id=str(point.id),
+                    payload=payload,
+                )
             )
-            for point in response.points
-        ]
+        return candidates
 
     def delete(self, alias: str, scope: OwnershipScope, **selectors: str) -> int:
         collection = self.alias_targets.get(alias, alias)

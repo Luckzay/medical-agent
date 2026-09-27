@@ -12,14 +12,14 @@ from app.services.document_processing import (
 )
 from app.services.embeddings import DeterministicTestEmbedding
 from app.services.ingestion import IngestionService
-from app.services.knowledge_repository import SQLiteCanonicalRepository
+from app.services.knowledge_repository import MySQLCanonicalRepository
 
 
 def service(
     tmp_path: Path, hook: Callable[[IngestionStage], None] | None = None
 ) -> IngestionService:
     return IngestionService(
-        SQLiteCanonicalRepository(tmp_path / "ingestion.db"),
+        MySQLCanonicalRepository(),
         ParserRegistry([PlainTextParser()]),
         StructureFirstChunker(ChunkingPolicy(token_budget=5, overlap=1)),
         DeterministicTestEmbedding(8),
@@ -138,7 +138,7 @@ def test_parser_and_invalid_vector_failures_are_durable(tmp_path: Path) -> None:
             return [[1.0] for _ in texts]
 
     invalid = IngestionService(
-        SQLiteCanonicalRepository(tmp_path / "vector.db"),
+        MySQLCanonicalRepository(),
         ParserRegistry([PlainTextParser()]),
         StructureFirstChunker(),
         InvalidEmbedding(8),

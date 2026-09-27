@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 from app.models.knowledge import BlockType, OwnershipScope
@@ -11,7 +9,6 @@ from app.services.document_processing import (
     ParserRegistry,
     PlainTextParser,
     StructureFirstChunker,
-    literature_blocks,
 )
 from app.services.knowledge_ports import UnsupportedMediaTypeError
 
@@ -49,19 +46,3 @@ def test_chunker_is_structure_first_overlapping_and_deterministic() -> None:
         ChunkingPolicy(token_budget=10, overlap=3, version="test-v2")
     ).chunk(blocks, scope)
     assert first[0].chunk_id != changed[0].chunk_id
-
-
-def test_real_excel_produces_131_unsplit_structured_rows() -> None:
-    source = (
-        Path(__file__).parents[1]
-        / "resources/literature/TCM_Supramolecular_Literature_Search_EN_v3_filled.xlsx"
-    )
-    blocks, mapping = literature_blocks(source, "excel-version")
-    assert len(blocks) == len(mapping) == 131
-    assert all(block.block_type is BlockType.STRUCTURED_ROW for block in blocks)
-    assert all(block.locator.row is not None for block in blocks)
-    chunks = StructureFirstChunker(ChunkingPolicy(token_budget=32, overlap=4)).chunk(
-        blocks, OwnershipScope(tenant_id="default", project_id="literature")
-    )
-    assert len(chunks) == 131
-    assert all("temperature" in block.metadata["headers"] for block in blocks)

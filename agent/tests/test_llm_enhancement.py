@@ -12,16 +12,15 @@ from app.services.workflow import LangGraphAnalysisWorkflow, WorkflowState
 
 
 @pytest.fixture
-def mock_settings() -> MagicMock:
-    settings = MagicMock(spec=Settings)
-    settings.llm_proxy_url = "http://test/chat"
-    settings.internal_token = "test-token"
-    settings.llm_timeout_seconds = 10.0
-    settings.llm_stream_mode = "optional"
-    settings.llm_mode = "optional"
-    settings.database_path = MagicMock()
-    settings.checkpoint_path = MagicMock()
-    return settings
+def mock_settings() -> Settings:
+    return Settings(
+        internal_token="test-token-for-agent",
+        testing=True,
+        llm_proxy_url="http://test/chat",
+        llm_timeout_seconds=10.0,
+        llm_stream_mode="optional",
+        llm_mode="optional",
+    )
 
 
 def test_llm_proxy_client_success(mock_settings: Any) -> None:
@@ -45,19 +44,27 @@ def test_llm_proxy_client_structured_tool_call(mock_settings: Any) -> None:
                 {
                     "id": "call-1",
                     "type": "function",
-                    "function": {"name": "search_literature", "arguments": '{"query":"黄芪"}'},
+                    "function": {
+                        "name": "search_toxicology_knowledge",
+                        "arguments": '{"query":"黄芪"}',
+                    },
                 }
             ],
         }
 
         result = client.chat(
             messages=[{"role": "user", "content": "检索黄芪"}],
-            tools=[{"type": "function", "function": {"name": "search_literature"}}],
+            tools=[
+                {
+                    "type": "function",
+                    "function": {"name": "search_toxicology_knowledge"},
+                }
+            ],
             tool_choice="auto",
         )
 
         assert isinstance(result, LLMChatResult)
-        assert result.tool_calls[0].function.name == "search_literature"
+        assert result.tool_calls[0].function.name == "search_toxicology_knowledge"
         payload = mock_post.call_args.kwargs["json"]
         assert payload["messages"][0]["role"] == "user"
         assert payload["tool_choice"] == "auto"
@@ -73,11 +80,9 @@ def test_llm_proxy_client_auth_failure(mock_settings: Any) -> None:
         assert "Authentication failed" in str(exc.value)
 
 
-@patch("app.services.workflow.ProposalReview")
-@patch("app.services.workflow.ExperimentProposal")
 @patch("app.services.workflow.get_settings")
 def test_workflow_llm_disabled(
-    mock_get_settings: Any, mock_proposal: Any, mock_review: Any, mock_settings: Any
+    mock_get_settings: Any, mock_settings: Any
 ) -> None:
     mock_settings.llm_mode = "disabled"
     mock_get_settings.return_value = mock_settings
@@ -106,11 +111,9 @@ def test_workflow_llm_disabled(
     assert kwargs["llm_summary"] is None
 
 
-@patch("app.services.workflow.ProposalReview")
-@patch("app.services.workflow.ExperimentProposal")
 @patch("app.services.workflow.get_settings")
 def test_workflow_llm_success(
-    mock_get_settings: Any, mock_proposal: Any, mock_review: Any, mock_settings: Any
+    mock_get_settings: Any, mock_settings: Any
 ) -> None:
     mock_settings.llm_mode = "optional"
     mock_get_settings.return_value = mock_settings
@@ -142,11 +145,9 @@ def test_workflow_llm_success(
     assert kwargs["llm_summary"] == "Success Summary"
 
 
-@patch("app.services.workflow.ProposalReview")
-@patch("app.services.workflow.ExperimentProposal")
 @patch("app.services.workflow.get_settings")
 def test_workflow_llm_optional_fallback(
-    mock_get_settings: Any, mock_proposal: Any, mock_review: Any, mock_settings: Any
+    mock_get_settings: Any, mock_settings: Any
 ) -> None:
     mock_settings.llm_mode = "optional"
     mock_get_settings.return_value = mock_settings
@@ -178,11 +179,9 @@ def test_workflow_llm_optional_fallback(
     assert kwargs["llm_summary"] is None
 
 
-@patch("app.services.workflow.ProposalReview")
-@patch("app.services.workflow.ExperimentProposal")
 @patch("app.services.workflow.get_settings")
 def test_workflow_llm_required_failure(
-    mock_get_settings: Any, mock_proposal: Any, mock_review: Any, mock_settings: Any
+    mock_get_settings: Any, mock_settings: Any
 ) -> None:
     mock_settings.llm_mode = "required"
     mock_get_settings.return_value = mock_settings

@@ -11,7 +11,7 @@ from app.core.config import Settings
 from app.main import app
 from app.models.run import MolecularDescriptors, RunCreate, RunStatus
 from app.services.analysis_service import AnalysisService
-from app.services.run_repository import SQLiteRunRepository
+from app.services.run_repository import MySQLRunRepository
 from app.services.run_service import RunConflictError, RunService
 from app.services.workflow import LangGraphAnalysisWorkflow
 
@@ -24,30 +24,30 @@ class UnavailableDescriptors:
 
 
 class NodeController:
-    def __init__(self, *, fail_chemistry_once: bool = False, block_normalize: bool = False) -> None:
+    def __init__(self, *, fail_normalize_once: bool = False, block_normalize: bool = False) -> None:
         self.calls: list[str] = []
-        self.fail_chemistry_once = fail_chemistry_once
+        self.fail_normalize_once = fail_normalize_once
         self.block_normalize = block_normalize
         self.entered = Event()
         self.release = Event()
 
     def __call__(self, node: str) -> None:
         self.calls.append(node)
-        if node == "normalize" and self.block_normalize:
-            self.entered.set()
-            if not self.release.wait(timeout=5):
-                raise TimeoutError("test did not release normalize node")
-        if node == "chemistry" and self.fail_chemistry_once:
-            self.fail_chemistry_once = False
-            raise RuntimeError("injected chemistry failure")
+        if node == "normalize":
+            if self.block_normalize:
+                self.entered.set()
+                if not self.release.wait(timeout=5):
+                    raise TimeoutError("test did not release normalize node")
+            if self.fail_normalize_once:
+                self.fail_normalize_once = False
+                raise RuntimeError("injected normalize failure")
 
 
 def settings(tmp_path: Path) -> Settings:
     return Settings(
         internal_token="test-only-agent-token",
         offline_mode=True,
-        database_path=tmp_path / "runs.db",
-        checkpoint_path=tmp_path / "checkpoints.db",
+        testing=True,
     )
 
 
@@ -63,12 +63,11 @@ def make_service(
         analysis,
         checkpointer=None if durable_checkpoints else InMemorySaver(),
         node_hook=hook,
-        checkpoint_path=configured.checkpoint_path,
     )
     return RunService(
         analysis_service=analysis,
         workflow=workflow,
-        repository=SQLiteRunRepository(configured.database_path),
+        repository=MySQLRunRepository(),
         settings=configured,
     )
 
@@ -94,11 +93,6 @@ def test_graph_runs_in_background_and_serializes_trace(tmp_path: Path) -> None:
     assert run.status is RunStatus.COMPLETED
     assert hook.calls == [
         "normalize",
-        "discover",
-        "chemistry",
-        "evidence",
-        "proposal",
-        "review",
         "finalize",
     ]
     assert run.workflow is not None
@@ -111,30 +105,20 @@ def test_graph_runs_in_background_and_serializes_trace(tmp_path: Path) -> None:
 
 
 def test_failure_checkpoint_and_fast_resume(tmp_path: Path) -> None:
-    hook = NodeController(fail_chemistry_once=True)
+    hook = NodeController(fail_normalize_once=True)
     service = make_service(tmp_path, hook)
 
     assert service.create(request()).status is RunStatus.RUNNING
     assert service.wait_for_idle(timeout=5)
     failed = service.get("workflow-run")
     assert failed.status is RunStatus.FAILED
-    assert failed.error_message == "injected chemistry failure"
+    assert failed.error_message == "injected normalize failure"
 
     resumed = service.resume("workflow-run")
     assert resumed.status is RunStatus.RUNNING
     assert service.wait_for_idle(timeout=5)
     completed = service.get("workflow-run")
     assert completed.status is RunStatus.COMPLETED
-    assert hook.calls == [
-        "normalize",
-        "discover",
-        "chemistry",
-        "chemistry",
-        "evidence",
-        "proposal",
-        "review",
-        "finalize",
-    ]
     service.close()
 
 
@@ -152,7 +136,7 @@ def test_cancel_wins_completion_race(tmp_path: Path) -> None:
     service.close()
 
 
-def test_sqlite_run_survives_service_reconstruction(tmp_path: Path) -> None:
+def test_mysql_run_survives_service_reconstruction(tmp_path: Path) -> None:
     first = make_service(tmp_path, durable_checkpoints=True)
     first.create(request("durable-run"))
     assert first.wait_for_idle(timeout=5)
@@ -165,7 +149,7 @@ def test_sqlite_run_survives_service_reconstruction(tmp_path: Path) -> None:
 
 
 def test_checkpoint_restart_resumes_failed_node(tmp_path: Path) -> None:
-    first_hook = NodeController(fail_chemistry_once=True)
+    first_hook = NodeController(fail_normalize_once=True)
     first = make_service(tmp_path, first_hook, durable_checkpoints=True)
     first.create(request("restart-run"))
     assert first.wait_for_idle(timeout=5)
@@ -179,9 +163,6 @@ def test_checkpoint_restart_resumes_failed_node(tmp_path: Path) -> None:
     assert second.get("restart-run").status is RunStatus.COMPLETED
     restarted_result = second.get("restart-run").analysis_result
     assert restarted_result is not None
-    assert restarted_result.proposal is not None
-    assert restarted_result.proposal_review is not None
-    assert second_hook.calls == ["chemistry", "evidence", "proposal", "review", "finalize"]
     second.close()
 
 

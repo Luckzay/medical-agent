@@ -1,33 +1,260 @@
-basePath: /api
+basePath: /
 definitions:
-  model.Expertise:
+  internal_handler.LoginRequest:
     properties:
-      abstract:
+      password:
+        example: "123456"
         type: string
-      application_situation:
+      username:
+        example: admin
         type: string
-      author:
+    required:
+    - password
+    - username
+    type: object
+  internal_handler.UpdateUserStatusRequest:
+    properties:
+      status:
+        example: active
         type: string
-      clinical_case:
+    required:
+    - status
+    type: object
+  internal_handler.chatRequest:
+    properties:
+      messages:
+        items:
+          $ref: '#/definitions/medicalagent_internal_service.LLMChatMessage'
+        type: array
+      system_prompt:
+        example: 你是一个中医专家
         type: string
-      couplet:
+      tool_choice:
         type: string
-      dosage_course_usage:
+      tools:
+        items:
+          items:
+            type: integer
+          type: array
+        type: array
+      user_prompt:
+        example: 请解释什么是辨证论治
         type: string
-      herb_id:
+    type: object
+  internal_handler.createAgentRunRequest:
+    properties:
+      herbs:
+        example:
+        - 麻黄
+        - 桂枝
+        items:
+          type: string
+        type: array
+      research_goal:
+        example: 分析麻黄桂枝汤的现代药理作用机制
+        type: string
+    type: object
+  internal_handler.createAgentSessionRequest:
+    properties:
+      title:
+        example: 关于麻黄的药理咨询
+        type: string
+    type: object
+  internal_handler.knowledgeSearchRequest:
+    properties:
+      limit:
+        example: 5
         type: integer
-      herb_or_decoction:
+      query:
+        example: 麻黄的功效
+        type: string
+      types:
+        example:
+        - herb
+        - decoction
+        items:
+          type: string
+        type: array
+    type: object
+  internal_handler.sendAgentMessageRequest:
+    properties:
+      content:
+        example: 请分析麻黄在宣肺平喘方面的科学原理
+        type: string
+    type: object
+  internal_handler.updateLLMConfigRequest:
+    properties:
+      api_key:
+        example: sk-...
+        type: string
+      base_url:
+        example: https://api.openai.com/v1
+        type: string
+      enabled:
+        example: true
+        type: boolean
+      model_name:
+        example: gpt-4
+        type: string
+      provider:
+        example: openai
+        type: string
+    required:
+    - base_url
+    - model_name
+    - provider
+    type: object
+  medicalagent_internal_model.AgentChatMessage:
+    properties:
+      content:
+        type: string
+      created_at:
         type: string
       id:
         type: integer
-      link_article:
+      role:
         type: string
-      related_article:
-        type: string
-      related_literature:
+      session_id:
+        type: integer
+      turn_id:
         type: string
     type: object
-  model.HerbBasic:
+  medicalagent_internal_model.AgentChatTurnResponse:
+    properties:
+      assistant_message:
+        $ref: '#/definitions/medicalagent_internal_model.AgentChatMessage'
+      created_at:
+        type: string
+      error_message:
+        type: string
+      events:
+        items:
+          type: integer
+        type: array
+      session_id:
+        type: integer
+      status:
+        type: string
+      turn_id:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  medicalagent_internal_model.AgentRunResponse:
+    properties:
+      analysis_result:
+        items:
+          type: integer
+        type: array
+      created_at:
+        type: string
+      error_message:
+        type: string
+      herbs:
+        items:
+          type: string
+        type: array
+      research_goal:
+        type: string
+      run_id:
+        type: string
+      status:
+        type: string
+      trace_id:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: integer
+      workflow:
+        items:
+          type: integer
+        type: array
+    type: object
+  medicalagent_internal_model.AgentSession:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      title:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  medicalagent_internal_model.DecoctionBasic:
+    properties:
+      adr:
+        type: string
+      basis_for_usage_and_dosage:
+        type: string
+      clinical_suggestion:
+        type: string
+      clinical_suggestion_basis:
+        type: string
+      conclusion_of_related_studies:
+        type: string
+      created_at:
+        type: string
+      crowd_taboo:
+        type: string
+      decoction_name:
+        type: string
+      decoction_name_pinyin:
+        type: string
+      dosage_form:
+        type: string
+      functionality:
+        type: string
+      functionality_basis:
+        type: string
+      id:
+        type: integer
+      link_to_clinical_suggestion:
+        type: string
+      link_to_functionality_basis:
+        type: string
+      link_to_related_studies:
+        type: string
+      link_to_usage_and_dosage:
+        type: string
+      pathological_examination:
+        type: string
+      related_studies:
+        type: string
+      related_toxic_herbs:
+        type: string
+      symptom_contraindications:
+        type: string
+      toxicity_mechanism:
+        type: string
+      typical_cases_of_adr:
+        type: string
+      updated_at:
+        type: string
+      usage_and_dosage:
+        type: string
+      virulence:
+        type: string
+    type: object
+  medicalagent_internal_model.DecoctionToxicCompound:
+    properties:
+      cas:
+        type: string
+      compound_name:
+        type: string
+      compound_type:
+        type: string
+      decoction_id:
+        type: integer
+      id:
+        type: integer
+      molecular_formula:
+        type: string
+      record_number:
+        type: integer
+    type: object
+  medicalagent_internal_model.HerbBasic:
     properties:
       adr:
         type: string
@@ -72,7 +299,65 @@ definitions:
       virulence:
         type: string
     type: object
-  model.HerbToxicCompound:
+  medicalagent_internal_model.HerbCoupletBasic:
+    properties:
+      adr:
+        type: string
+      clinical_suggestion:
+        type: string
+      clinical_suggestion_basis:
+        type: string
+      created_at:
+        type: string
+      crowd_taboo:
+        type: string
+      functionality:
+        type: string
+      functionality_basis:
+        type: string
+      herb_couplet_name:
+        type: string
+      herb_couplet_name_pinyin:
+        type: string
+      id:
+        type: integer
+      link_to_clinical_suggestion:
+        type: string
+      link_to_functionality_basis:
+        type: string
+      pathological_examination:
+        type: string
+      related_toxic_herbs:
+        type: string
+      symptom_contraindications:
+        type: string
+      toxicity_mechanism:
+        type: string
+      typical_cases_of_adr:
+        type: string
+      updated_at:
+        type: string
+      virulence:
+        type: string
+    type: object
+  medicalagent_internal_model.HerbCoupletToxicCompound:
+    properties:
+      cas:
+        type: string
+      compound_name:
+        type: string
+      compound_type:
+        type: string
+      couplet_id:
+        type: integer
+      id:
+        type: integer
+      molecular_formula:
+        type: string
+      record_number:
+        type: integer
+    type: object
+  medicalagent_internal_model.HerbToxicCompound:
     properties:
       cas:
         type: string
@@ -89,12 +374,120 @@ definitions:
       record_number:
         type: integer
     type: object
-  model.UserResponse:
+  medicalagent_internal_model.LLMConfig:
     properties:
+      base_url:
+        type: string
+      created_at:
+        type: string
+      enabled:
+        type: boolean
+      model_name:
+        type: string
+      provider:
+        type: string
+      updated_at:
+        type: string
+      updated_by:
+        type: integer
+    type: object
+  medicalagent_internal_model.MolecularInfo:
+    properties:
+      created_at:
+        type: string
+      fda_pharmacology_summary:
+        type: string
+      heavy_atom_count:
+        type: integer
+      hydrogen_bond_acceptor_count:
+        type: integer
+      hydrogen_bond_donor_count:
+        type: integer
+      inchi:
+        type: string
+      inchi_key:
+        type: string
+      livertox_summary:
+        type: string
+      molecular_formula:
+        type: string
+      molecular_weight:
+        type: number
+      record_description:
+        type: string
+      record_number:
+        type: integer
+      record_title:
+        type: string
+      rotatable_bond_count:
+        type: integer
+      smiles:
+        type: string
+      xlogp3:
+        type: number
+    type: object
+  medicalagent_internal_model.Paper:
+    properties:
+      abstract:
+        type: string
+      authors:
+        type: string
+      created_at:
+        type: string
+      doi:
+        type: string
+      id:
+        type: integer
+      journal:
+        type: string
+      source_db:
+        type: string
+      title:
+        type: string
+      year:
+        type: integer
+    type: object
+  medicalagent_internal_model.User:
+    properties:
+      affiliation:
+        type: string
       created_at:
         type: string
       email:
         type: string
+      email_consent:
+        type: boolean
+      full_name:
+        type: string
+      gender:
+        type: string
+      id:
+        type: integer
+      password:
+        type: string
+      phone:
+        type: string
+      professional_title:
+        type: string
+      role:
+        type: string
+      status:
+        type: string
+      updated_at:
+        type: string
+      username:
+        type: string
+    type: object
+  medicalagent_internal_model.UserResponse:
+    properties:
+      affiliation:
+        type: string
+      created_at:
+        type: string
+      email:
+        type: string
+      email_consent:
+        type: boolean
       full_name:
         type: string
       gender:
@@ -103,14 +496,122 @@ definitions:
         type: integer
       phone:
         type: string
+      professional_title:
+        type: string
       role:
+        type: string
+      status:
         type: string
       updated_at:
         type: string
       username:
         type: string
     type: object
-  service.HerbDetail:
+  medicalagent_internal_service.CoupletDetail:
+    properties:
+      adr:
+        type: string
+      clinical_suggestion:
+        type: string
+      clinical_suggestion_basis:
+        type: string
+      created_at:
+        type: string
+      crowd_taboo:
+        type: string
+      functionality:
+        type: string
+      functionality_basis:
+        type: string
+      herb_couplet_name:
+        type: string
+      herb_couplet_name_pinyin:
+        type: string
+      id:
+        type: integer
+      link_to_clinical_suggestion:
+        type: string
+      link_to_functionality_basis:
+        type: string
+      pathological_examination:
+        type: string
+      related_toxic_herbs:
+        type: string
+      symptom_contraindications:
+        type: string
+      toxic_compounds:
+        items:
+          $ref: '#/definitions/medicalagent_internal_model.HerbCoupletToxicCompound'
+        type: array
+      toxicity_mechanism:
+        type: string
+      typical_cases_of_adr:
+        type: string
+      updated_at:
+        type: string
+      virulence:
+        type: string
+    type: object
+  medicalagent_internal_service.DecoctionDetail:
+    properties:
+      adr:
+        type: string
+      basis_for_usage_and_dosage:
+        type: string
+      clinical_suggestion:
+        type: string
+      clinical_suggestion_basis:
+        type: string
+      conclusion_of_related_studies:
+        type: string
+      created_at:
+        type: string
+      crowd_taboo:
+        type: string
+      decoction_name:
+        type: string
+      decoction_name_pinyin:
+        type: string
+      dosage_form:
+        type: string
+      functionality:
+        type: string
+      functionality_basis:
+        type: string
+      id:
+        type: integer
+      link_to_clinical_suggestion:
+        type: string
+      link_to_functionality_basis:
+        type: string
+      link_to_related_studies:
+        type: string
+      link_to_usage_and_dosage:
+        type: string
+      pathological_examination:
+        type: string
+      related_studies:
+        type: string
+      related_toxic_herbs:
+        type: string
+      symptom_contraindications:
+        type: string
+      toxic_compounds:
+        items:
+          $ref: '#/definitions/medicalagent_internal_model.DecoctionToxicCompound'
+        type: array
+      toxicity_mechanism:
+        type: string
+      typical_cases_of_adr:
+        type: string
+      updated_at:
+        type: string
+      usage_and_dosage:
+        type: string
+      virulence:
+        type: string
+    type: object
+  medicalagent_internal_service.HerbDetail:
     properties:
       adr:
         type: string
@@ -124,10 +625,6 @@ definitions:
         type: string
       crowd_taboo:
         type: string
-      expertises:
-        items:
-          $ref: '#/definitions/model.Expertise'
-        type: array
       functionality:
         type: string
       functionality_basis:
@@ -150,7 +647,7 @@ definitions:
         type: string
       toxic_compounds:
         items:
-          $ref: '#/definitions/model.HerbToxicCompound'
+          $ref: '#/definitions/medicalagent_internal_model.HerbToxicCompound'
         type: array
       toxicity_mechanism:
         type: string
@@ -162,6 +659,36 @@ definitions:
         type: string
       virulence:
         type: string
+    type: object
+  medicalagent_internal_service.LLMChatMessage:
+    properties:
+      content:
+        type: string
+      role:
+        type: string
+      tool_call_id:
+        type: string
+      tool_calls:
+        items:
+          items:
+            type: integer
+          type: array
+        type: array
+    type: object
+  medicalagent_internal_service.LLMChatResponse:
+    properties:
+      content:
+        type: string
+      model:
+        type: string
+      provider:
+        type: string
+      tool_calls:
+        items:
+          items:
+            type: integer
+          type: array
+        type: array
     type: object
 host: localhost:8080
 info:
@@ -177,7 +704,445 @@ info:
   title: AI Medical Agent API
   version: "1.0"
 paths:
-  /auth/login:
+  /api/admin/llm-config:
+    get:
+      description: 管理员查看当前的 LLM 提供商、基础 URL 和模型名称（API Key 会被脱敏）
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/medicalagent_internal_model.LLMConfig'
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取 LLM 配置
+      tags:
+      - admin
+    put:
+      consumes:
+      - application/json
+      description: 管理员更新 LLM 配置信息
+      parameters:
+      - description: 配置信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.updateLLMConfigRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 更新 LLM 配置
+      tags:
+      - admin
+  /api/agent/runs:
+    post:
+      consumes:
+      - application/json
+      description: 提交研究目标和相关药物，开始异步分析任务
+      parameters:
+      - description: 创建请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.createAgentRunRequest'
+      - description: 幂等性密钥
+        in: header
+        name: Idempotency-Key
+        type: string
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            properties:
+              data:
+                $ref: '#/definitions/medicalagent_internal_model.AgentRunResponse'
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "502":
+          description: Bad Gateway
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 创建 Agent Run
+      tags:
+      - agent
+  /api/agent/runs/{run_id}:
+    get:
+      consumes:
+      - application/json
+      description: 根据任务 ID 获取异步分析任务的状态和结果
+      parameters:
+      - description: 任务 ID
+        in: path
+        name: run_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              data:
+                $ref: '#/definitions/medicalagent_internal_model.AgentRunResponse'
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取 Agent Run 详情
+      tags:
+      - agent
+  /api/agent/runs/{run_id}/resume:
+    post:
+      consumes:
+      - application/json
+      description: 重新启动状态为失败的任务
+      parameters:
+      - description: 任务 ID
+        in: path
+        name: run_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              data:
+                $ref: '#/definitions/medicalagent_internal_model.AgentRunResponse'
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 恢复失败的 Agent Run
+      tags:
+      - agent
+  /api/agent/sessions:
+    get:
+      description: 获取当前用户的所有 Agent 对话会话
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              data:
+                items:
+                  $ref: '#/definitions/medicalagent_internal_model.AgentSession'
+                type: array
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取对话会话列表
+      tags:
+      - agent-chat
+    post:
+      consumes:
+      - application/json
+      description: 为用户创建一个新的 Agent 对话会话
+      parameters:
+      - description: 会话信息
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/internal_handler.createAgentSessionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            properties:
+              data:
+                $ref: '#/definitions/medicalagent_internal_model.AgentSession'
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 创建对话会话
+      tags:
+      - agent-chat
+  /api/agent/sessions/{id}:
+    get:
+      description: 获取指定会话的详情及所有历史消息
+      parameters:
+      - description: 会话 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              data:
+                properties:
+                  messages:
+                    items:
+                      $ref: '#/definitions/medicalagent_internal_model.AgentChatMessage'
+                    type: array
+                  session:
+                    $ref: '#/definitions/medicalagent_internal_model.AgentSession'
+                type: object
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取会话详情
+      tags:
+      - agent-chat
+  /api/agent/sessions/{id}/messages:
+    post:
+      consumes:
+      - application/json
+      description: 在指定会话中发送消息，返回生成的 Turn ID
+      parameters:
+      - description: 会话 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 消息内容
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.sendAgentMessageRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            properties:
+              data:
+                properties:
+                  status:
+                    type: string
+                  turn_id:
+                    type: string
+                type: object
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 发送对话消息
+      tags:
+      - agent-chat
+  /api/agent/sessions/{id}/turns/{turn_id}:
+    get:
+      description: 获取指定对话轮次（Turn）的当前状态 and 分析结果
+      parameters:
+      - description: 会话 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 轮次 ID
+        in: path
+        name: turn_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              data:
+                $ref: '#/definitions/medicalagent_internal_model.AgentChatTurnResponse'
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取对话轮次结果
+      tags:
+      - agent-chat
+  /api/agent/sessions/{id}/turns/{turn_id}/stream:
+    get:
+      description: |-
+        通过 SSE 流式获取轮次的执行进度、事件以及最终结果。
+        事件帧格式为 Data: {sequence: int64, ...}。
+        事件类型包括:
+        1. "execution": 包含中间执行步骤的事件帧。
+        2. "turn": 包含最终状态 (done/failed) 和完整结果的结束帧。
+        当收到 status 为 "done" 或 "failed" 的 "turn" 事件，或连接断开时，流式传输结束。
+      parameters:
+      - description: 会话 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 轮次 ID
+        in: path
+        name: turn_id
+        required: true
+        type: string
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: SSE stream
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: 流式获取轮次进度 (SSE)
+      tags:
+      - agent-chat
+  /api/auth/login:
     post:
       consumes:
       - application/json
@@ -188,12 +1153,7 @@ paths:
         name: request
         required: true
         schema:
-          properties:
-            password:
-              type: string
-            username:
-              type: string
-          type: object
+          $ref: '#/definitions/internal_handler.LoginRequest'
       produces:
       - application/json
       responses:
@@ -204,7 +1164,7 @@ paths:
               token:
                 type: string
               user:
-                $ref: '#/definitions/model.UserResponse'
+                $ref: '#/definitions/medicalagent_internal_model.UserResponse'
             type: object
         "400":
           description: Bad Request
@@ -223,7 +1183,875 @@ paths:
       summary: 用户登录
       tags:
       - auth
-  /herbs:
+  /api/auth/register:
+    post:
+      consumes:
+      - application/json
+      description: 新用户申请注册，初始状态为 pending
+      parameters:
+      - description: 用户信息
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/medicalagent_internal_model.User'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            properties:
+              data:
+                $ref: '#/definitions/medicalagent_internal_model.UserResponse'
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: 用户注册
+      tags:
+      - auth
+  /api/cases:
+    get:
+      consumes:
+      - application/json
+      description: 分页查询导入的病案或条文内容
+      parameters:
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              data:
+                items:
+                  additionalProperties: true
+                  type: object
+                type: array
+              page:
+                type: integer
+              page_size:
+                type: integer
+              total:
+                format: int64
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: 获取导入内容列表 (病案/条文)
+      tags:
+      - imported
+  /api/cases/{id}:
+    get:
+      consumes:
+      - application/json
+      description: 根据 ID 获取病案或条文的详细内容及关联信息
+      parameters:
+      - description: 记录 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              data:
+                properties:
+                  decoctions:
+                    items:
+                      additionalProperties: true
+                      type: object
+                    type: array
+                  herbs:
+                    items:
+                      additionalProperties: true
+                      type: object
+                    type: array
+                  record:
+                    additionalProperties: true
+                    type: object
+                type: object
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: 获取导入内容详情 (病案/条文)
+      tags:
+      - imported
+  /api/clauses:
+    get:
+      consumes:
+      - application/json
+      description: 分页查询导入的病案或条文内容
+      parameters:
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              data:
+                items:
+                  additionalProperties: true
+                  type: object
+                type: array
+              page:
+                type: integer
+              page_size:
+                type: integer
+              total:
+                format: int64
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: 获取导入内容列表 (病案/条文)
+      tags:
+      - imported
+  /api/clauses/{id}:
+    get:
+      consumes:
+      - application/json
+      description: 根据 ID 获取病案或条文的详细内容及关联信息
+      parameters:
+      - description: 记录 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              data:
+                properties:
+                  decoctions:
+                    items:
+                      additionalProperties: true
+                      type: object
+                    type: array
+                  herbs:
+                    items:
+                      additionalProperties: true
+                      type: object
+                    type: array
+                  record:
+                    additionalProperties: true
+                    type: object
+                type: object
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: 获取导入内容详情 (病案/条文)
+      tags:
+      - imported
+  /api/compounds:
+    get:
+      consumes:
+      - application/json
+      description: 分页查询化合物，支持关键词搜索
+      parameters:
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      - description: 搜索关键词
+        in: query
+        name: keyword
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              data:
+                items:
+                  $ref: '#/definitions/medicalagent_internal_model.MolecularInfo'
+                type: array
+              page:
+                type: integer
+              page_size:
+                type: integer
+              total:
+                format: int64
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: 获取化合物列表
+      tags:
+      - compounds
+    post:
+      consumes:
+      - application/json
+      description: 管理员新增化合物记录
+      parameters:
+      - description: 化合物信息
+        in: body
+        name: compound
+        required: true
+        schema:
+          $ref: '#/definitions/medicalagent_internal_model.MolecularInfo'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            properties:
+              data:
+                $ref: '#/definitions/medicalagent_internal_model.MolecularInfo'
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 创建化合物
+      tags:
+      - compounds
+  /api/compounds/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 管理员删除指定化合物记录
+      parameters:
+      - description: Record Number
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 删除化合物
+      tags:
+      - compounds
+    get:
+      consumes:
+      - application/json
+      description: 根据 Record Number 获取化合物详细信息
+      parameters:
+      - description: Record Number
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              data:
+                $ref: '#/definitions/medicalagent_internal_model.MolecularInfo'
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: 获取化合物详情
+      tags:
+      - compounds
+    put:
+      consumes:
+      - application/json
+      description: 管理员更新现有化合物记录
+      parameters:
+      - description: Record Number
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 化合物信息
+        in: body
+        name: compound
+        required: true
+        schema:
+          $ref: '#/definitions/medicalagent_internal_model.MolecularInfo'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 更新化合物
+      tags:
+      - compounds
+  /api/couplets:
+    get:
+      consumes:
+      - application/json
+      description: 分页查询药对，支持关键词搜索
+      parameters:
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      - description: 搜索关键词
+        in: query
+        name: keyword
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              data:
+                items:
+                  $ref: '#/definitions/medicalagent_internal_model.HerbCoupletBasic'
+                type: array
+              page:
+                type: integer
+              page_size:
+                type: integer
+              total:
+                format: int64
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: 获取药对列表
+      tags:
+      - couplets
+    post:
+      consumes:
+      - application/json
+      description: 管理员新增药对记录
+      parameters:
+      - description: 药对信息
+        in: body
+        name: couplet
+        required: true
+        schema:
+          $ref: '#/definitions/medicalagent_internal_model.HerbCoupletBasic'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            properties:
+              data:
+                $ref: '#/definitions/medicalagent_internal_model.HerbCoupletBasic'
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 创建药对
+      tags:
+      - couplets
+  /api/couplets/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 管理员删除指定药对记录
+      parameters:
+      - description: 药对 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 删除药对
+      tags:
+      - couplets
+    get:
+      consumes:
+      - application/json
+      description: 根据 ID 获取药对详细信息，包括组成和研究进展
+      parameters:
+      - description: 药对 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              data:
+                $ref: '#/definitions/medicalagent_internal_service.CoupletDetail'
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: 获取药对详情
+      tags:
+      - couplets
+    put:
+      consumes:
+      - application/json
+      description: 管理员更新现有药对记录
+      parameters:
+      - description: 药对 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 药对信息
+        in: body
+        name: couplet
+        required: true
+        schema:
+          $ref: '#/definitions/medicalagent_internal_model.HerbCoupletBasic'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 更新药对
+      tags:
+      - couplets
+  /api/decoctions:
+    get:
+      consumes:
+      - application/json
+      description: 分页查询方剂，支持关键词搜索
+      parameters:
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      - description: 搜索关键词
+        in: query
+        name: keyword
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              data:
+                items:
+                  $ref: '#/definitions/medicalagent_internal_model.DecoctionBasic'
+                type: array
+              page:
+                type: integer
+              page_size:
+                type: integer
+              total:
+                format: int64
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: 获取方剂列表
+      tags:
+      - decoctions
+    post:
+      consumes:
+      - application/json
+      description: 管理员新增方剂记录
+      parameters:
+      - description: 方剂信息
+        in: body
+        name: decoction
+        required: true
+        schema:
+          $ref: '#/definitions/medicalagent_internal_model.DecoctionBasic'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            properties:
+              data:
+                $ref: '#/definitions/medicalagent_internal_model.DecoctionBasic'
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 创建方剂
+      tags:
+      - decoctions
+  /api/decoctions/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 管理员删除指定方剂记录
+      parameters:
+      - description: 方剂 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 删除方剂
+      tags:
+      - decoctions
+    get:
+      consumes:
+      - application/json
+      description: 根据 ID 获取方剂详细信息，包括组成和主治
+      parameters:
+      - description: 方剂 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              data:
+                $ref: '#/definitions/medicalagent_internal_service.DecoctionDetail'
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: 获取方剂详情
+      tags:
+      - decoctions
+    put:
+      consumes:
+      - application/json
+      description: 管理员更新现有方剂记录
+      parameters:
+      - description: 方剂 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 方剂信息
+        in: body
+        name: decoction
+        required: true
+        schema:
+          $ref: '#/definitions/medicalagent_internal_model.DecoctionBasic'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 更新方剂
+      tags:
+      - decoctions
+  /api/herbs:
     get:
       consumes:
       - application/json
@@ -252,7 +2080,7 @@ paths:
             properties:
               data:
                 items:
-                  $ref: '#/definitions/model.HerbBasic'
+                  $ref: '#/definitions/medicalagent_internal_model.HerbBasic'
                 type: array
               page:
                 type: integer
@@ -272,7 +2100,86 @@ paths:
       summary: 获取单味药列表
       tags:
       - herbs
-  /herbs/{id}:
+    post:
+      consumes:
+      - application/json
+      description: 管理员新增单味药记录
+      parameters:
+      - description: 单味药信息
+        in: body
+        name: herb
+        required: true
+        schema:
+          $ref: '#/definitions/medicalagent_internal_model.HerbBasic'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            properties:
+              data:
+                $ref: '#/definitions/medicalagent_internal_model.HerbBasic'
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 创建单味药
+      tags:
+      - herbs
+  /api/herbs/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 管理员删除指定单味药记录
+      parameters:
+      - description: 药物 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 删除单味药
+      tags:
+      - herbs
     get:
       consumes:
       - application/json
@@ -291,7 +2198,7 @@ paths:
           schema:
             properties:
               data:
-                $ref: '#/definitions/service.HerbDetail'
+                $ref: '#/definitions/medicalagent_internal_service.HerbDetail'
             type: object
         "400":
           description: Bad Request
@@ -310,7 +2217,635 @@ paths:
       summary: 获取单味药详情
       tags:
       - herbs
+    put:
+      consumes:
+      - application/json
+      description: 管理员更新现有单味药记录
+      parameters:
+      - description: 药物 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 单味药信息
+        in: body
+        name: herb
+        required: true
+        schema:
+          $ref: '#/definitions/medicalagent_internal_model.HerbBasic'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 更新单味药
+      tags:
+      - herbs
+  /api/papers:
+    get:
+      consumes:
+      - application/json
+      description: 分页查询文献，支持关键词搜索
+      parameters:
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      - description: 搜索关键词
+        in: query
+        name: keyword
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              data:
+                items:
+                  $ref: '#/definitions/medicalagent_internal_model.Paper'
+                type: array
+              page:
+                type: integer
+              page_size:
+                type: integer
+              total:
+                format: int64
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: 获取文献列表
+      tags:
+      - papers
+    post:
+      consumes:
+      - application/json
+      description: 管理员新增文献记录
+      parameters:
+      - description: 文献信息
+        in: body
+        name: paper
+        required: true
+        schema:
+          $ref: '#/definitions/medicalagent_internal_model.Paper'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            properties:
+              data:
+                $ref: '#/definitions/medicalagent_internal_model.Paper'
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 创建文献
+      tags:
+      - papers
+  /api/papers/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 管理员删除指定文献记录
+      parameters:
+      - description: 文献 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 删除文献
+      tags:
+      - papers
+    get:
+      consumes:
+      - application/json
+      description: 根据 ID 获取文献详细信息
+      parameters:
+      - description: 文献 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              data:
+                $ref: '#/definitions/medicalagent_internal_model.Paper'
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: 获取文献详情
+      tags:
+      - papers
+    put:
+      consumes:
+      - application/json
+      description: 管理员更新现有文献记录
+      parameters:
+      - description: 文献 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 文献信息
+        in: body
+        name: paper
+        required: true
+        schema:
+          $ref: '#/definitions/medicalagent_internal_model.Paper'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 更新文献
+      tags:
+      - papers
+  /api/users:
+    get:
+      consumes:
+      - application/json
+      description: 管理员分页查看所有用户信息
+      parameters:
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              data:
+                items:
+                  $ref: '#/definitions/medicalagent_internal_model.UserResponse'
+                type: array
+              page:
+                type: integer
+              page_size:
+                type: integer
+              total:
+                format: int64
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取用户列表
+      tags:
+      - users
+    post:
+      consumes:
+      - application/json
+      description: 管理员直接创建已激活状态的用户
+      parameters:
+      - description: 用户信息
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/medicalagent_internal_model.User'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            properties:
+              data:
+                $ref: '#/definitions/medicalagent_internal_model.UserResponse'
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 管理员创建用户
+      tags:
+      - users
+  /api/users/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 管理员删除指定用户
+      parameters:
+      - description: 用户 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 删除用户
+      tags:
+      - users
+    put:
+      consumes:
+      - application/json
+      description: 管理员更新指定用户的信息
+      parameters:
+      - description: 用户 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 用户信息
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/medicalagent_internal_model.User'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 更新用户信息
+      tags:
+      - users
+  /api/users/{id}/status:
+    patch:
+      consumes:
+      - application/json
+      description: 管理员审核用户注册申请，更新状态（如 active, rejected）
+      parameters:
+      - description: 用户 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 状态信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.UpdateUserStatusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              status:
+                type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 审核用户状态
+      tags:
+      - users
+  /internal/v1/knowledge/search:
+    post:
+      consumes:
+      - application/json
+      description: 供 Agent 服务内部调用的知识库语义搜索接口
+      parameters:
+      - description: 内部认证令牌
+        in: header
+        name: X-Agent-Token
+        required: true
+        type: string
+      - description: 搜索请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.knowledgeSearchRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              results:
+                items:
+                  additionalProperties: true
+                  type: object
+                type: array
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - AgentTokenAuth: []
+      summary: 知识库搜索接口
+      tags:
+      - internal
+  /internal/v1/llm/chat:
+    post:
+      consumes:
+      - application/json
+      description: 供 Agent 服务内部调用的 LLM 对话接口
+      parameters:
+      - description: 内部认证令牌
+        in: header
+        name: X-Agent-Token
+        required: true
+        type: string
+      - description: 对话请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.chatRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/medicalagent_internal_service.LLMChatResponse'
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "502":
+          description: Bad Gateway
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - AgentTokenAuth: []
+      summary: 内部 LLM 对话接口
+      tags:
+      - internal
+  /internal/v1/llm/chat/stream:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        供 Agent 服务内部调用的 LLM 流式对话接口 (SSE)。
+        事件帧格式为标准的 SSE 格式，包含 event 和 data 字段。
+        常见事件类型:
+        1. "message": 对话内容增量帧。
+        2. "error": 发生错误时的通知帧。
+        3. "done": 对话正常结束的标记。
+      parameters:
+      - description: 内部认证令牌
+        in: header
+        name: X-Agent-Token
+        required: true
+        type: string
+      - description: 对话请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.chatRequest'
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: SSE stream
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - AgentTokenAuth: []
+      summary: 内部 LLM 流式对话接口
+      tags:
+      - internal
 securityDefinitions:
+  AgentTokenAuth:
+    in: header
+    name: X-Agent-Token
+    type: apiKey
   BearerAuth:
     in: header
     name: Authorization

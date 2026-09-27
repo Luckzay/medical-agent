@@ -2,14 +2,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from functools import lru_cache
 from uuid import uuid4
 
+from elasticsearch import Elasticsearch
 from qdrant_client import QdrantClient
 
 from app.core.config import Settings, get_settings
 from app.models.knowledge import IndexManifest
 from app.services.embeddings import DeterministicTestEmbedding, LazySentenceTransformerEmbedding
-from app.services.knowledge_repository import SQLiteCanonicalRepository
+from app.services.knowledge_repository import MySQLCanonicalRepository
+from app.services.lexical_store import ElasticsearchLexicalStore, LexicalStore
 from app.services.vector_index import QdrantVectorStore
 
 
@@ -20,9 +23,41 @@ class VectorRuntime:
     manifest: IndexManifest | None
 
 
+def build_elasticsearch_client(settings: Settings) -> Elasticsearch:
+    basic_auth = None
+    if settings.elasticsearch_username:
+        basic_auth = (
+            settings.elasticsearch_username,
+            settings.elasticsearch_password.get_secret_value()
+            if settings.elasticsearch_password
+            else "",
+        )
+    options: dict[str, object] = {
+        "basic_auth": basic_auth,
+        "request_timeout": settings.elasticsearch_timeout_seconds,
+        "verify_certs": settings.elasticsearch_verify_certs,
+    }
+    if settings.elasticsearch_ca_certs:
+        options["ca_certs"] = settings.elasticsearch_ca_certs
+    return Elasticsearch(settings.elasticsearch_url, **options)  # type: ignore[arg-type]
+
+
+def build_lexical_store(
+    settings: Settings | None = None,
+    repository: MySQLCanonicalRepository | None = None,
+) -> LexicalStore:
+    del repository
+    settings = settings or get_settings()
+    return ElasticsearchLexicalStore(
+        build_elasticsearch_client(settings),
+        settings.elasticsearch_index_alias,
+        timeout_seconds=settings.elasticsearch_timeout_seconds,
+    )
+
+
 def build_runtime(settings: Settings | None = None) -> VectorRuntime:
     settings = settings or get_settings()
-    repository = SQLiteCanonicalRepository(settings.canonical_database_path)
+    repository = MySQLCanonicalRepository()
     if settings.vector_mode == "disabled":
         return VectorRuntime(DeterministicTestEmbedding(settings.embedding_dimension), None, None)
     if settings.embedding_provider != "sentence_transformers":
@@ -50,7 +85,7 @@ def build_runtime(settings: Settings | None = None) -> VectorRuntime:
     generation = datetime.now(UTC).strftime("%Y%m%d%H%M%S")
     manifest = IndexManifest(
         manifest_id=str(uuid4()),
-        collection_name=f"medical_evidence_v{generation}",
+        collection_name=f"toxicology_v{generation}",
         alias=settings.qdrant_collection_alias,
         generation=generation,
         schema_version=1,
@@ -62,3 +97,12 @@ def build_runtime(settings: Settings | None = None) -> VectorRuntime:
         source_snapshot="pending",
     )
     return VectorRuntime(embedding, store, manifest)
+
+
+@lru_cache(maxsize=1)
+def get_vector_runtime() -> VectorRuntime:
+    return build_runtime(get_settings())
+
+
+def warm_vector_runtime() -> None:
+    get_vector_runtime().embedding.embed_query("中药毒理知识检索预热")

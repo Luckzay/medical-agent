@@ -11,6 +11,7 @@ from app.core.config import Settings
 from app.models.tooling import (
     NormalizeHerbsInput,
     RetryPolicy,
+    SearchMedicalKnowledgeInput,
     SkillDefinition,
     ToolDefinition,
     ToolExecutionContext,
@@ -61,6 +62,10 @@ def context() -> ToolExecutionContext:
     )
 
 
+def test_search_knowledge_default_limit_is_five() -> None:
+    assert SearchMedicalKnowledgeInput(query="黄芪").limit == 5
+
+
 def test_registry_rejects_conflicts_and_unknown_skill_tools() -> None:
     registry = ToolRegistry()
     item = definition(lambda request: ValueOutput(value=request.value))
@@ -82,7 +87,7 @@ def test_registry_rejects_conflicts_and_unknown_skill_tools() -> None:
 def test_runtime_audits_permission_and_validation_failures(tmp_path: Any) -> None:
     registry = ToolRegistry()
     registry.register_tool(definition(lambda request: ValueOutput(value=request.value)))
-    runtime = ToolRuntime(registry, tmp_path / "audit.db")
+    runtime = ToolRuntime(registry)
     denied = context().model_copy(update={"permissions": frozenset()})
     with pytest.raises(ToolPermissionError):
         runtime.execute("test_tool", {"value": 1}, denied)
@@ -106,17 +111,17 @@ def test_runtime_retries_and_validates_output(tmp_path: Any) -> None:
 
     registry = ToolRegistry()
     registry.register_tool(definition(flaky, retry_policy=RetryPolicy(max_retries=1)))
-    runtime = ToolRuntime(registry, tmp_path / "retry.db")
+    runtime = ToolRuntime(registry)
     assert runtime.execute("test_tool", {"value": 7}, context()) == ValueOutput(value=7)
     assert runtime.audits_for_run("run-tool-test")[0].attempts == 2
     runtime.close()
 
     invalid_registry = ToolRegistry()
     invalid_registry.register_tool(definition(lambda _request: {"value": "bad"}))
-    invalid_runtime = ToolRuntime(invalid_registry, tmp_path / "invalid.db")
+    invalid_runtime = ToolRuntime(invalid_registry)
     with pytest.raises(ToolOutputValidationError):
         invalid_runtime.execute("test_tool", {"value": 1}, context())
-    assert invalid_runtime.audits_for_run("run-tool-test")[0].status == "output_validation_failed"
+    assert invalid_runtime.audits_for_run("run-tool-test")[-1].status == "output_validation_failed"
     invalid_runtime.close()
 
 
@@ -131,7 +136,7 @@ def test_runtime_timeout_is_audited_without_sleep(tmp_path: Any) -> None:
 
     registry = ToolRegistry()
     registry.register_tool(definition(blocking, timeout_seconds=0.01))
-    runtime = ToolRuntime(registry, tmp_path / "timeout.db")
+    runtime = ToolRuntime(registry)
     try:
         with pytest.raises(ToolTimeoutError):
             runtime.execute("test_tool", {"value": 1}, context())
@@ -146,12 +151,11 @@ def test_builtin_tools_and_workflow_use_runtime_in_order(tmp_path: Any) -> None:
     settings = Settings(
         internal_token="test-only-agent-token",
         offline_mode=True,
-        database_path=tmp_path / "runs.db",
-        checkpoint_path=tmp_path / "checkpoints.db",
+        testing=True,
     )
     analysis = AnalysisService(settings)
     registry = build_tool_registry(analysis)
-    runtime = ToolRuntime(registry, settings.database_path)
+    runtime = ToolRuntime(registry)
 
     normalized = runtime.execute(
         "normalize_herbs",
@@ -160,40 +164,13 @@ def test_builtin_tools_and_workflow_use_runtime_in_order(tmp_path: Any) -> None:
             run_id="builtins", node="normalize", permissions=INTERNAL_TOOL_PERMISSIONS
         ),
     )
-    discovered = runtime.execute(
-        "discover_compounds",
-        {"normalized_herbs": normalized.model_dump()["normalized_herbs"]},
-        ToolExecutionContext(
-            run_id="builtins", node="discover", permissions=INTERNAL_TOOL_PERMISSIONS
-        ),
-    )
-    described = runtime.execute(
-        "calculate_descriptors",
-        {"compounds": discovered.model_dump(mode="json")["compounds"]},
-        ToolExecutionContext(
-            run_id="builtins", node="chemistry", permissions=INTERNAL_TOOL_PERMISSIONS
-        ),
-    )
-    scored = runtime.execute(
-        "score_supramolecular_candidate",
-        {"compounds": described.model_dump(mode="json")["compounds"]},
-        ToolExecutionContext(
-            run_id="builtins", node="chemistry", permissions=INTERNAL_TOOL_PERMISSIONS
-        ),
-    )
-    assert len(scored.model_dump()["compounds"]) == 2
+    assert len(normalized.model_dump()["normalized_herbs"]) == 2
 
     workflow = LangGraphAnalysisWorkflow(analysis, checkpointer=InMemorySaver(), runtime=runtime)
     result = workflow.invoke("workflow-tools", ["黄芪"])
     audits = runtime.audits_for_run("workflow-tools")
     assert [audit.tool_name for audit in audits] == [
         "normalize_herbs",
-        "discover_compounds",
-        "calculate_descriptors",
-        "score_supramolecular_candidate",
-        "search_literature",
-        "generate_experiment_proposal",
-        "review_experiment_proposal",
     ]
     assert result.workflow is not None and result.workflow.tooling is not None
     assert result.workflow.tooling.audit_ids == [audit.audit_id for audit in audits]

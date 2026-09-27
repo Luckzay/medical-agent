@@ -17,28 +17,24 @@ from app.services.builtin_tools import INTERNAL_TOOL_PERMISSIONS
 from app.services.chat_repository import (
     ChatTurnNotFoundError,
     DuplicateChatTurnError,
-    SQLiteChatRepository,
+    MySQLChatRepository,
 )
 from app.services.llm_proxy import LLMProxyClient
 from app.services.tool_runtime import ToolRuntime
 
-SYSTEM_PROMPT = """你是医学科研辅助智能体。你必须根据问题自主决定是否调用工具以及调用哪个工具。
-必须引用工具结果中的来源、证据标识或关键数据；不得伪造文献、数据、结论或工具结果。
-当工具结果不足、冲突或失败时，明确说明不确定性和证据缺口。你的回答仅用于科研辅助，
-不得替代临床诊断或治疗决策。"""
+SYSTEM_PROMPT = """你是中药毒理专家。回答任何问题前必须先调用 search_toxicology_knowledge。
+你只能依据本轮工具返回的业务知识库及毒理记录作答，不得使用模型常识补充毒性、
+毒性机制、病理检查、禁忌、不良反应、案例、临床建议或有毒成分等结论。使用中文回答。
+禁止在回答中引用或展示任何内部 ID、内部标识或数据库字段名，包括但不限于 herb_basic:42、
+herb_id、document_id、reference；禁止引用或展示数据源路径及其字段名，包括但不限于
+mysql://...、logical_source、source。可以引用工具返回的公开依据或链接，但不得解释数据库结构或检索过程。
+必须先判断检索结果是否与用户问题直接相关。若结果不相关、无结果、相互冲突、来源不可追溯或工具失败，
+只用一两句话回答“当前知识库暂无相关记录”，不得列出、概述或提及任何无关命中项。
+若知识库存在相关记录但内容有限，直接基于已有记录简洁回答，不要解释检索过程，不得猜测或补全。
+回答仅用于科研辅助，不替代临床诊断或治疗决策。"""
 
-CHAT_TOOL_ALLOWLIST = frozenset(
-    {
-        "normalize_herbs",
-        "discover_compounds",
-        "calculate_descriptors",
-        "score_supramolecular_candidate",
-        "search_literature",
-        "search_medical_knowledge",
-        "generate_experiment_proposal",
-        "review_experiment_proposal",
-    }
-)
+NO_EVIDENCE_MESSAGE = "当前知识库暂无相关记录。"
+CHAT_TOOL_ALLOWLIST = frozenset({"search_toxicology_knowledge"})
 _SENSITIVE_KEY = re.compile(r"token|secret|password|api[_-]?key|authorization|cookie", re.I)
 _SENSITIVE_TEXT = re.compile(r"(?i)(bearer\s+)[A-Za-z0-9._~+/=-]+")
 _SENSITIVE_ASSIGNMENT = re.compile(
@@ -51,6 +47,7 @@ class AgentState(TypedDict):
     messages: list[dict[str, Any]]
     rounds: int
     tool_calls: int
+    evidence_found: bool
     final_message: str | None
     stop_reason: str | None
 
@@ -63,12 +60,12 @@ class ChatTurnService:
         runtime: ToolRuntime,
         *,
         settings: Settings | None = None,
-        repository: SQLiteChatRepository | None = None,
+        repository: MySQLChatRepository | None = None,
         llm: LLMProxyClient | None = None,
     ) -> None:
         self._settings = settings or get_settings()
         self._runtime = runtime
-        self._repository = repository or SQLiteChatRepository(self._settings.database_path)
+        self._repository = repository or MySQLChatRepository()
         self._llm = llm or LLMProxyClient(self._settings)
         self._lock = RLock()
         self._executor: ThreadPoolExecutor | None = None
@@ -127,7 +124,7 @@ class ChatTurnService:
     ) -> None:
         turn_id = self._current_turn_id()
         event = ChatEvent(
-            sequence=self._repository.next_sequence(turn_id),
+            sequence=1,  # Placeholder; MySQL allocates the public sequence under a row lock.
             type=event_type,
             node=node,
             status=status,
@@ -192,13 +189,15 @@ class ChatTurnService:
         self._event("llm_start", "agent", "running", "开始请求 LLM")
 
         def persist_delta(delta: str) -> None:
-            self._event(
-                "assistant_delta",
-                "agent",
-                "streaming",
-                "LLM 内容增量",
-                delta=delta,
-            )
+            # Do not expose an ungrounded answer through streaming events before evidence exists.
+            if state["evidence_found"]:
+                self._event(
+                    "assistant_delta",
+                    "agent",
+                    "streaming",
+                    "LLM 内容增量",
+                    delta=delta,
+                )
 
         response = self._llm.stream_chat(
             messages=state["messages"],
@@ -207,21 +206,27 @@ class ChatTurnService:
             on_delta=persist_delta,
         )
         tool_calls = [call.model_dump(mode="json") for call in response.tool_calls]
-        assistant = {"role": "assistant", "content": response.content, "tool_calls": tool_calls}
+        content = response.content
+        stop_reason = state["stop_reason"]
+        if not tool_calls and not state["evidence_found"]:
+            content = NO_EVIDENCE_MESSAGE
+            stop_reason = "no_evidence"
+        assistant = {"role": "assistant", "content": content, "tool_calls": tool_calls}
         messages = [*state["messages"], assistant]
         self._event(
             "llm_end",
             "agent",
             "completed",
             "LLM 返回工具调用" if tool_calls else "LLM 返回最终回答",
-            output_data={"content": response.content, "tool_calls": tool_calls},
+            output_data={"content": content, "tool_calls": tool_calls},
         )
         self._event("node_end", "agent", "completed", "智能体节点结束")
         return {
             **state,
             "messages": messages,
             "rounds": state["rounds"] + 1,
-            "final_message": response.content if not tool_calls else None,
+            "final_message": content if not tool_calls else None,
+            "stop_reason": stop_reason,
         }
 
     @staticmethod
@@ -235,6 +240,7 @@ class ChatTurnService:
         self._event("node_start", "tools", "running", "工具节点开始")
         messages = list(state["messages"])
         count = state["tool_calls"]
+        evidence_found = state["evidence_found"]
         for call in messages[-1].get("tool_calls", []):
             if count >= self._settings.chat_max_tool_calls:
                 message = (
@@ -275,6 +281,10 @@ class ChatTurnService:
                         permissions=INTERNAL_TOOL_PERMISSIONS,
                     ),
                 ).model_dump(mode="json")
+                results = output.get("results")
+                evidence_found = evidence_found or (
+                    isinstance(results, list) and len(results) > 0
+                )
                 self._event(
                     "tool_result",
                     "tools",
@@ -310,7 +320,12 @@ class ChatTurnService:
             )
             count += 1
         self._event("node_end", "tools", "completed", "工具节点结束")
-        return {**state, "messages": messages, "tool_calls": count}
+        return {
+            **state,
+            "messages": messages,
+            "tool_calls": count,
+            "evidence_found": evidence_found,
+        }
 
     @staticmethod
     def _after_tools(state: AgentState) -> str:
@@ -363,6 +378,7 @@ class ChatTurnService:
                         messages=messages,
                         rounds=0,
                         tool_calls=0,
+                        evidence_found=False,
                         final_message=None,
                         stop_reason=None,
                     )

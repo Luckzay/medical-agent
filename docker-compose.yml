@@ -12,6 +12,7 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
       - ./init_new_database.sql:/docker-entrypoint-initdb.d/10-init-medical-platform.sql:ro
+      - ./migrations/20260926_create_agent_mysql_storage.sql:/docker-entrypoint-initdb.d/20-init-agent-storage.sql:ro
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_0900_ai_ci
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${DB_PASSWORD:-root123}"]
@@ -20,16 +21,17 @@ services:
       retries: 5
 
   redis:
-    image: redis:7-alpine
+    image: redis/redis-stack-server:7.4.0-v8
     container_name: medical-redis
     restart: unless-stopped
+    environment:
+      REDIS_ARGS: "--appendonly yes --requirepass ${REDIS_PASSWORD:-redis123}"
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-}
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis123}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -78,7 +80,28 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.5
+    container_name: medical-elasticsearch
+    restart: unless-stopped
+    profiles: ["search"]
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms1g -Xmx1g"
+    ports:
+      - "127.0.0.1:9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://localhost:9200/_cluster/health || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
   qdrant:
     image: ghcr.io/qdrant/qdrant/qdrant:v1.15.4
     container_name: medical-qdrant
@@ -103,13 +126,15 @@ services:
     container_name: medical-agent-service
     restart: unless-stopped
     environment:
-      AGENT_SERVICE_NAME: tcm-supramolecular-agent
+      AGENT_SERVICE_NAME: tcm-toxicology-agent
       AGENT_SERVICE_VERSION: 0.6.0
       AGENT_INTERNAL_TOKEN: ${AGENT_INTERNAL_TOKEN:?AGENT_INTERNAL_TOKEN is required}
-      AGENT_DATABASE_PATH: /app/data/agent_runs.db
-      AGENT_CHECKPOINT_PATH: /app/data/checkpoints.db
-      AGENT_EVIDENCE_SOURCE_PATH: /app/resources/literature/TCM_Supramolecular_Literature_Search_EN_v3_filled.xlsx
-      AGENT_EVIDENCE_DATABASE_PATH: /app/data/evidence.db
+      AGENT_MYSQL_HOST: mysql
+      AGENT_MYSQL_PORT: 3306
+      AGENT_MYSQL_USER: root
+      AGENT_MYSQL_PASSWORD: ${DB_PASSWORD:-root123}
+      AGENT_MYSQL_DATABASE: ${DB_NAME:-ai_medical_db}
+      AGENT_REDIS_URL: redis://:${REDIS_PASSWORD:-redis123}@redis:6379/0
       AGENT_EVIDENCE_TOP_K: ${AGENT_EVIDENCE_TOP_K:-10}
       AGENT_WORKER_COUNT: ${AGENT_WORKER_COUNT:-2}
       AGENT_LLM_MODE: ${AGENT_LLM_MODE:-optional}
@@ -121,11 +146,19 @@ services:
       AGENT_CHAT_MAX_AGENT_ROUNDS: ${AGENT_CHAT_MAX_AGENT_ROUNDS:-8}
       AGENT_CHAT_MAX_TOOL_CALLS: ${AGENT_CHAT_MAX_TOOL_CALLS:-12}
       AGENT_CHAT_EVENT_PAYLOAD_CHARS: ${AGENT_CHAT_EVENT_PAYLOAD_CHARS:-4000}
-      AGENT_CANONICAL_DATABASE_PATH: /app/data/canonical_knowledge.db
+      AGENT_LEXICAL_BACKEND: elasticsearch
+      AGENT_ELASTICSEARCH_URL: ${AGENT_ELASTICSEARCH_URL:-http://elasticsearch:9200}
+      AGENT_ELASTICSEARCH_INDEX_ALIAS: ${AGENT_ELASTICSEARCH_INDEX_ALIAS:-medical_toxicology_current}
+      AGENT_ELASTICSEARCH_USERNAME: ${AGENT_ELASTICSEARCH_USERNAME:-}
+      AGENT_ELASTICSEARCH_PASSWORD: ${AGENT_ELASTICSEARCH_PASSWORD:-}
+      AGENT_ELASTICSEARCH_TIMEOUT_SECONDS: ${AGENT_ELASTICSEARCH_TIMEOUT_SECONDS:-3}
+      AGENT_ELASTICSEARCH_VERIFY_CERTS: ${AGENT_ELASTICSEARCH_VERIFY_CERTS:-false}
+      AGENT_ELASTICSEARCH_CA_CERTS: ${AGENT_ELASTICSEARCH_CA_CERTS:-}
       AGENT_VECTOR_MODE: ${AGENT_VECTOR_MODE:-disabled}
       AGENT_QDRANT_URL: http://qdrant:6333
-      AGENT_QDRANT_COLLECTION_ALIAS: ${AGENT_QDRANT_COLLECTION_ALIAS:-medical_evidence_active}
-      AGENT_SUPRAMOLECULAR_COLLECTION: ${AGENT_SUPRAMOLECULAR_COLLECTION:-supramolecular_experiments_active}
+      AGENT_QDRANT_COLLECTION_ALIAS: ${AGENT_QDRANT_COLLECTION_ALIAS:-toxicology_active}
+      AGENT_EVIDENCE_TENANT_ID: ${AGENT_EVIDENCE_TENANT_ID:-default}
+      AGENT_EVIDENCE_PROJECT_ID: ${AGENT_EVIDENCE_PROJECT_ID:-toxicology}
       AGENT_EMBEDDING_PROVIDER: sentence_transformers
       AGENT_EMBEDDING_MODEL: intfloat/multilingual-e5-small
       AGENT_EMBEDDING_REVISION: 614241f622f53c4eeff9890bdc4f31cfecc418b3
@@ -137,12 +170,19 @@ services:
       AGENT_CHUNK_TOKEN_BUDGET: 480
       AGENT_CHUNK_TOKEN_OVERLAP: 64
       HF_HOME: /app/.cache/huggingface
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+        required: false
     ports:
       - "127.0.0.1:8090:8000"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - agent_data:/app/data
       - hf_cache:/app/.cache/huggingface
     networks:
       - default
@@ -158,9 +198,9 @@ volumes:
   mysql_data:
   redis_data:
   meili_data:
-  agent_data:
   hf_cache:
   qdrant_data:
+  elasticsearch_data:
   rocketmq_namesrv_logs:
   rocketmq_broker_logs:
   rocketmq_broker_store:

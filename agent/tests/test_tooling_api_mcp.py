@@ -25,10 +25,8 @@ def test_internal_tooling_endpoints_require_auth_and_return_audits(tmp_path: Any
     settings = Settings(
         internal_token=TOKEN,
         offline_mode=True,
-        database_path=tmp_path / "api.db",
-        checkpoint_path=tmp_path / "checkpoint.db",
     )
-    runtime = ToolRuntime(build_tool_registry(AnalysisService(settings)), settings.database_path)
+    runtime = ToolRuntime(build_tool_registry(AnalysisService(settings)))
     runtime.execute(
         "normalize_herbs",
         {"herbs": ["黄芪"]},
@@ -46,15 +44,10 @@ def test_internal_tooling_endpoints_require_auth_and_return_audits(tmp_path: Any
         assert tools.status_code == 200
         assert {item["name"] for item in tools.json()} == {
             "normalize_herbs",
-            "discover_compounds",
-            "calculate_descriptors",
-            "score_supramolecular_candidate",
-            "search_literature",
             "search_medical_knowledge",
-            "generate_experiment_proposal",
-            "review_experiment_proposal",
+            "search_toxicology_knowledge",
         }
-        assert len(skills.json()) == 5
+        assert len(skills.json()) == 0
         assert audits.json()[0]["tool_name"] == "normalize_herbs"
         assert "handler" not in tools.text
     finally:
@@ -91,100 +84,9 @@ def test_mcp_real_initialize_list_and_call_protocol() -> None:
                 },
             ),
         )
-        searched = client.post(
-            "/mcp/",
-            headers=MCP_HEADERS,
-            json=rpc(
-                "tools/call",
-                4,
-                {
-                    "name": "search_literature",
-                    "arguments": {"herbs": ["甘草"], "top_k": 1, "run_id": "evidence"},
-                },
-            ),
-        )
-        generated = client.post(
-            "/mcp/",
-            headers=MCP_HEADERS,
-            json=rpc(
-                "tools/call",
-                5,
-                {
-                    "name": "generate_experiment_proposal",
-                    "arguments": {
-                        "compounds": [
-                            {
-                                "compound_id": "fixture",
-                                "name": "Fixture",
-                                "herb": "当归",
-                                "smiles": "CO",
-                                "pubchem_cid": None,
-                                "descriptors": {
-                                    "molecular_weight": None,
-                                    "logp": None,
-                                    "tpsa": None,
-                                    "hbd": None,
-                                    "hba": None,
-                                },
-                                "candidate_score": {
-                                    "rules": [],
-                                    "total_score": 7,
-                                    "candidate_threshold": 6,
-                                    "is_candidate": True,
-                                },
-                                "evidence_ids": ["seed:fixture"],
-                            }
-                        ],
-                        "claims": [],
-                        "evidence": [
-                            {
-                                "evidence_id": "seed:fixture",
-                                "source": "fixture",
-                                "source_type": "local_seed",
-                                "reference": "seed://fixture",
-                                "retrieved_at": None,
-                                "title": None,
-                                "link": None,
-                                "year": None,
-                                "source_row": None,
-                                "matched_fields": [],
-                                "score": None,
-                                "conditions": None,
-                            }
-                        ],
-                        "max_conditions": 1,
-                        "run_id": "proposal",
-                    },
-                },
-            ),
-        )
-        proposal = generated.json()["result"]["structuredContent"]
-        reviewed = client.post(
-            "/mcp/",
-            headers=MCP_HEADERS,
-            json=rpc(
-                "tools/call",
-                6,
-                {
-                    "name": "review_experiment_proposal",
-                    "arguments": {
-                        "proposal": proposal,
-                        "available_evidence_ids": ["seed:fixture"],
-                        "run_id": "review",
-                    },
-                },
-            ),
-        )
     assert initialized.status_code == 200
-    assert initialized.json()["result"]["serverInfo"]["version"] == "0.7.0"
+    assert initialized.json()["result"]["serverInfo"]["version"] == "1.0.0"
     tools = {item["name"] for item in listed.json()["result"]["tools"]}
-    assert len(tools) == 7
-    assert {"generate_experiment_proposal", "review_experiment_proposal"} <= tools
+    assert len(tools) == 3
+    assert "normalize_herbs" in tools
     assert called.json()["result"]["structuredContent"] == {"normalized_herbs": ["黄芪"]}
-    assert searched.status_code == 200
-    assert searched.json()["result"]["structuredContent"]["hits"]
-
-    assert generated.status_code == 200
-    assert proposal["condition_matrix"][0]["source_type"] == "exploratory_default"
-    assert reviewed.status_code == 200
-    assert reviewed.json()["result"]["structuredContent"]["status"] == "needs_revision"
