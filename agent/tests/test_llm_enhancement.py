@@ -12,16 +12,15 @@ from app.services.workflow import LangGraphAnalysisWorkflow, WorkflowState
 
 
 @pytest.fixture
-def mock_settings() -> MagicMock:
-    settings = MagicMock(spec=Settings)
-    settings.llm_proxy_url = "http://test/chat"
-    settings.internal_token = "test-token"
-    settings.llm_timeout_seconds = 10.0
-    settings.llm_stream_mode = "optional"
-    settings.llm_mode = "optional"
-    settings.database_path = MagicMock()
-    settings.checkpoint_path = MagicMock()
-    return settings
+def mock_settings() -> Settings:
+    return Settings(
+        internal_token="test-token-for-agent",
+        testing=True,
+        llm_proxy_url="http://test/chat",
+        llm_timeout_seconds=10.0,
+        llm_stream_mode="optional",
+        llm_mode="optional",
+    )
 
 
 def test_llm_proxy_client_success(mock_settings: Any) -> None:

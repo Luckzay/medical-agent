@@ -27,7 +27,7 @@ func NewHerbHandler() *HerbHandler { return &HerbHandler{svc: service.NewHerbSer
 // @Param        keyword    query      string  false  "搜索关键词"
 // @Success      200  {object}  object{data=[]model.HerbBasic,total=int64,page=int,page_size=int}
 // @Failure      500  {object}  object{error=string}
-// @Router       /herbs [get]
+// @Router       /api/herbs [get]
 func (h *HerbHandler) List(c *gin.Context) {
 	page, pageSize, guest := publicPagination(c)
 	keyword := c.Query("keyword")
@@ -50,7 +50,7 @@ func (h *HerbHandler) List(c *gin.Context) {
 // @Success      200  {object}  object{data=service.HerbDetail}
 // @Failure      400  {object}  object{error=string}
 // @Failure      404  {object}  object{error=string}
-// @Router       /herbs/{id} [get]
+// @Router       /api/herbs/{id} [get]
 func (h *HerbHandler) Detail(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -68,6 +68,18 @@ func (h *HerbHandler) Detail(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": detail})
 }
 
+// Create godoc
+// @Summary      创建单味药
+// @Description  管理员新增单味药记录
+// @Tags         herbs
+// @Accept       json
+// @Produce      json
+// @Param        herb  body      model.HerbBasic  true  "单味药信息"
+// @Success      201  {object}  object{data=model.HerbBasic}
+// @Failure      400  {object}  object{error=string}
+// @Failure      500  {object}  object{error=string}
+// @Security     BearerAuth
+// @Router       /api/herbs [post]
 func (h *HerbHandler) Create(c *gin.Context) {
 	var herb model.HerbBasic
 	if err := c.ShouldBindJSON(&herb); err != nil {
@@ -85,6 +97,19 @@ func (h *HerbHandler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"data": herb})
 }
 
+// Update godoc
+// @Summary      更新单味药
+// @Description  管理员更新现有单味药记录
+// @Tags         herbs
+// @Accept       json
+// @Produce      json
+// @Param        id    path      int              true  "药物 ID"
+// @Param        herb  body      model.HerbBasic  true  "单味药信息"
+// @Success      200   {object}  object{message=string}
+// @Failure      400   {object}  object{error=string}
+// @Failure      500   {object}  object{error=string}
+// @Security     BearerAuth
+// @Router       /api/herbs/{id} [put]
 func (h *HerbHandler) Update(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -104,6 +129,18 @@ func (h *HerbHandler) Update(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "更新成功"})
 }
 
+// Delete godoc
+// @Summary      删除单味药
+// @Description  管理员删除指定单味药记录
+// @Tags         herbs
+// @Accept       json
+// @Produce      json
+// @Param        id   path      int  true  "药物 ID"
+// @Success      200  {object}  object{message=string}
+// @Failure      400  {object}  object{error=string}
+// @Failure      500  {object}  object{error=string}
+// @Security     BearerAuth
+// @Router       /api/herbs/{id} [delete]
 func (h *HerbHandler) Delete(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {

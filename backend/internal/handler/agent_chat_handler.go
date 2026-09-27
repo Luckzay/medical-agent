@@ -29,13 +29,25 @@ type AgentChatHandler struct{ svc agentChatService }
 func NewAgentChatHandler(svc agentChatService) *AgentChatHandler { return &AgentChatHandler{svc: svc} }
 
 type createAgentSessionRequest struct {
-	Title string `json:"title"`
+	Title string `json:"title" example:"关于麻黄的药理咨询"`
 }
 
 type sendAgentMessageRequest struct {
-	Content string `json:"content"`
+	Content string `json:"content" example:"请分析麻黄在宣肺平喘方面的科学原理"`
 }
 
+// CreateSession godoc
+// @Summary      创建对话会话
+// @Description  为用户创建一个新的 Agent 对话会话
+// @Tags         agent-chat
+// @Accept       json
+// @Produce      json
+// @Param        request  body      createAgentSessionRequest  false  "会话信息"
+// @Success      201  {object}  object{data=model.AgentSession}
+// @Failure      400  {object}  object{error=string}
+// @Failure      500  {object}  object{error=string}
+// @Security     BearerAuth
+// @Router       /api/agent/sessions [post]
 func (h *AgentChatHandler) CreateSession(c *gin.Context) {
 	userID, ok := currentUserID(c)
 	if !ok {
@@ -61,6 +73,15 @@ func (h *AgentChatHandler) CreateSession(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"data": session})
 }
 
+// ListSessions godoc
+// @Summary      获取对话会话列表
+// @Description  获取当前用户的所有 Agent 对话会话
+// @Tags         agent-chat
+// @Produce      json
+// @Success      200  {object}  object{data=[]model.AgentSession}
+// @Failure      500  {object}  object{error=string}
+// @Security     BearerAuth
+// @Router       /api/agent/sessions [get]
 func (h *AgentChatHandler) ListSessions(c *gin.Context) {
 	userID, ok := currentUserID(c)
 	if !ok {
@@ -78,6 +99,17 @@ func (h *AgentChatHandler) ListSessions(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": sessions})
 }
 
+// GetSession godoc
+// @Summary      获取会话详情
+// @Description  获取指定会话的详情及所有历史消息
+// @Tags         agent-chat
+// @Produce      json
+// @Param        id   path      int  true  "会话 ID"
+// @Success      200  {object}  object{data=object{session=model.AgentSession,messages=[]model.AgentChatMessage}}
+// @Failure      400  {object}  object{error=string}
+// @Failure      404  {object}  object{error=string}
+// @Security     BearerAuth
+// @Router       /api/agent/sessions/{id} [get]
 func (h *AgentChatHandler) GetSession(c *gin.Context) {
 	userID, sessionID, ok := chatRouteIdentity(c)
 	if !ok {
@@ -98,6 +130,19 @@ func (h *AgentChatHandler) GetSession(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": gin.H{"session": session, "messages": messages}})
 }
 
+// SendMessage godoc
+// @Summary      发送对话消息
+// @Description  在指定会话中发送消息，返回生成的 Turn ID
+// @Tags         agent-chat
+// @Accept       json
+// @Produce      json
+// @Param        id       path      int                      true  "会话 ID"
+// @Param        request  body      sendAgentMessageRequest  true  "消息内容"
+// @Success      202  {object}  object{data=object{turn_id=string,status=string}}
+// @Failure      400  {object}  object{error=string}
+// @Failure      404  {object}  object{error=string}
+// @Security     BearerAuth
+// @Router       /api/agent/sessions/{id}/messages [post]
 func (h *AgentChatHandler) SendMessage(c *gin.Context) {
 	userID, sessionID, ok := chatRouteIdentity(c)
 	if !ok {
@@ -123,6 +168,18 @@ func (h *AgentChatHandler) SendMessage(c *gin.Context) {
 	}
 }
 
+// GetTurn godoc
+// @Summary      获取对话轮次结果
+// @Description  获取指定对话轮次（Turn）的当前状态 and 分析结果
+// @Tags         agent-chat
+// @Produce      json
+// @Param        id       path      int     true  "会话 ID"
+// @Param        turn_id  path      string  true  "轮次 ID"
+// @Success      200  {object}  object{data=model.AgentChatTurnResponse}
+// @Failure      400  {object}  object{error=string}
+// @Failure      404  {object}  object{error=string}
+// @Security     BearerAuth
+// @Router       /api/agent/sessions/{id}/turns/{turn_id} [get]
 func (h *AgentChatHandler) GetTurn(c *gin.Context) {
 	userID, sessionID, ok := chatRouteIdentity(c)
 	if !ok {
@@ -164,6 +221,21 @@ var (
 	agentTurnHeartbeat    = 15 * time.Second
 )
 
+// StreamTurn godoc
+// @Summary      流式获取轮次进度 (SSE)
+// @Description  通过 SSE 流式获取轮次的执行进度、事件以及最终结果。
+// @Description  事件帧格式为 Data: {sequence: int64, ...}。
+// @Description  事件类型包括:
+// @Description  1. "execution": 包含中间执行步骤的事件帧。
+// @Description  2. "turn": 包含最终状态 (done/failed) 和完整结果的结束帧。
+// @Description  当收到 status 为 "done" 或 "failed" 的 "turn" 事件，或连接断开时，流式传输结束。
+// @Tags         agent-chat
+// @Produce      text/event-stream
+// @Param        id       path      int     true  "会话 ID"
+// @Param        turn_id  path      string  true  "轮次 ID"
+// @Success      200  {string}  string  "SSE stream"
+// @Security     BearerAuth
+// @Router       /api/agent/sessions/{id}/turns/{turn_id}/stream [get]
 func (h *AgentChatHandler) StreamTurn(c *gin.Context) {
 	userID, sessionID, ok := chatRouteIdentity(c)
 	if !ok {

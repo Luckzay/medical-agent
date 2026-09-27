@@ -6,7 +6,8 @@ from time import monotonic
 from app.models.knowledge import DocumentChunk, OwnershipScope, RetrievalDiagnostics
 from app.services.embeddings import EmbeddingProvider
 from app.services.knowledge_observability import metrics
-from app.services.knowledge_repository import SQLiteCanonicalRepository
+from app.services.knowledge_repository import MySQLCanonicalRepository
+from app.services.lexical_store import LexicalStore, LexicalStoreError
 from app.services.rerankers import RequiredRerankerError, RerankerProvider, validate_scores
 from app.services.vector_index import QdrantVectorStore
 
@@ -51,10 +52,17 @@ class HybridResult:
     broken_lineage: int = 0
 
 
+@dataclass(frozen=True)
+class CandidateHybridResult:
+    identifiers: list[str]
+    diagnostics: dict[str, object]
+    degraded: bool
+
+
 class HybridRetriever:
     def __init__(
         self,
-        repository: SQLiteCanonicalRepository,
+        repository: MySQLCanonicalRepository,
         embedding: EmbeddingProvider,
         vector_store: QdrantVectorStore | None,
         alias: str,
@@ -70,6 +78,129 @@ class HybridRetriever:
         self.reranker = reranker
         self.reranker_mode = reranker_mode
         self.reranker_candidate_limit = reranker_candidate_limit
+
+    def search_identifiers(
+        self,
+        query: str,
+        scope: OwnershipScope,
+        lexical_store: LexicalStore,
+        *,
+        limit: int = 10,
+        lexical_limit: int | None = None,
+        vector_limit: int | None = None,
+        filters: dict[str, object] | None = None,
+        expected_snapshot: str | None = None,
+    ) -> CandidateHybridResult:
+        """Fuse backend-neutral lexical identifiers with Qdrant identifiers using RRF."""
+        started = monotonic()
+        lexical_ids: list[str] = []
+        vector_ids: list[str] = []
+        exact_boosts: dict[str, tuple[str, ...]] = {}
+        degradation: list[str] = []
+        backend = lexical_store.backend
+        source_snapshot: str | None = None
+        try:
+            lexical = lexical_store.search(query, scope, lexical_limit or limit * 2, filters)
+            backend = lexical.backend
+            source_snapshot = lexical.source_snapshot
+            lexical_ids = [candidate.identifier for candidate in lexical.candidates]
+            exact_boosts = {
+                candidate.identifier: candidate.exact_fields
+                for candidate in lexical.candidates
+                if candidate.exact_fields
+            }
+            if lexical.degraded_reason:
+                degradation.append(lexical.degraded_reason)
+        except LexicalStoreError:
+            degradation.append(f"{backend}_unavailable")
+
+        if self.vector_store is None:
+            degradation.append("vector_disabled")
+        elif expected_snapshot and source_snapshot and expected_snapshot != source_snapshot:
+            degradation.append("source_snapshot_mismatch")
+        else:
+            try:
+                vector = self.embedding.embed_query(query)
+                hits = self.vector_store.search(
+                    self.alias, vector, scope, vector_limit or limit * 2, filters
+                )
+                logical_sources = [
+                    str(hit.payload.get("logical_source") or hit.payload.get("document_id"))
+                    for hit in hits
+                    if hit.payload.get("logical_source") or hit.payload.get("document_id")
+                ]
+                references_by_source = self.repository.resolve_toxicology_references(
+                    logical_sources
+                )
+                unresolved_chunk_ids = [
+                    hit.chunk_id
+                    for hit in hits
+                    if not hit.payload.get("reference")
+                    and not references_by_source.get(
+                        str(
+                            hit.payload.get("logical_source")
+                            or hit.payload.get("document_id")
+                            or ""
+                        )
+                    )
+                ]
+                chunks_by_id = {
+                    chunk.chunk_id: chunk
+                    for chunk in self.repository.get_chunks(scope, unresolved_chunk_ids)
+                }
+                references_by_chunk_source = self.repository.resolve_toxicology_references(
+                    [chunk.locator.source_uri for chunk in chunks_by_id.values()]
+                )
+                unresolved = 0
+                for hit in hits:
+                    reference = hit.payload.get("reference")
+                    if not reference:
+                        logical_source = str(
+                            hit.payload.get("logical_source")
+                            or hit.payload.get("document_id")
+                            or ""
+                        )
+                        reference = references_by_source.get(logical_source)
+                    if not reference:
+                        chunk = chunks_by_id.get(hit.chunk_id)
+                        if chunk is not None:
+                            reference = references_by_chunk_source.get(chunk.locator.source_uri)
+                    if reference and str(reference) not in vector_ids:
+                        vector_ids.append(str(reference))
+                    elif not reference:
+                        unresolved += 1
+                if unresolved:
+                    degradation.append(f"vector_candidates_unresolved:{unresolved}")
+            except Exception:
+                degradation.append("vector_unavailable")
+
+        if (
+            not lexical_ids
+            and not vector_ids
+            and any(reason.endswith("_unavailable") for reason in degradation)
+        ):
+            raise RuntimeError("hybrid retrieval failed: no retrieval backend available")
+        fused = reciprocal_rank_fusion(
+            lexical_ids, vector_ids, rrf_k=self.rrf_k, exact_boosts=exact_boosts
+        )
+        diagnostics: dict[str, object] = {
+            "mode": "hybrid"
+            if lexical_ids and vector_ids
+            else ("lexical" if lexical_ids else "vector"),
+            "lexical_backend": backend,
+            "lexical_source_snapshot": source_snapshot,
+            "sources": [
+                source
+                for source, values in ((backend, lexical_ids), ("qdrant", vector_ids))
+                if values
+            ],
+            "degradation": degradation,
+            "policy_version": self.policy_version,
+            "latency_ms": round((monotonic() - started) * 1000, 3),
+        }
+        return CandidateHybridResult(
+            [candidate.identifier for candidate in fused[:limit]], diagnostics, bool(degradation)
+        )
 
     def search(
         self,

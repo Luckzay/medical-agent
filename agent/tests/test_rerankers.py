@@ -10,7 +10,7 @@ import pytest
 from app.models.knowledge import OwnershipScope
 from app.services.embeddings import DeterministicTestEmbedding
 from app.services.hybrid_retrieval import HybridRetriever
-from app.services.knowledge_repository import SQLiteCanonicalRepository
+from app.services.knowledge_repository import MySQLCanonicalRepository
 from app.services.rerankers import (
     DeterministicTestReranker,
     LazyCrossEncoderReranker,
@@ -64,7 +64,7 @@ def test_cross_encoder_is_lazy_and_validates_output() -> None:
 
 
 def test_rerank_happens_after_scope_and_lineage_with_stable_ties(tmp_path: Path) -> None:
-    repository = SQLiteCanonicalRepository(tmp_path / "rerank.db")
+    repository = MySQLCanonicalRepository()
     scope = OwnershipScope(tenant_id="t", project_id="p")
     first = add_chunk(repository, scope, "a", "first passage")
     second = add_chunk(repository, scope, "b", "second passage")
@@ -84,7 +84,7 @@ def test_rerank_happens_after_scope_and_lineage_with_stable_ties(tmp_path: Path)
 
 
 def test_optional_failure_falls_back_and_required_failure_is_explicit(tmp_path: Path) -> None:
-    repository = SQLiteCanonicalRepository(tmp_path / "failure.db")
+    repository = MySQLCanonicalRepository()
     scope = OwnershipScope(tenant_id="t", project_id="p")
     chunk = add_chunk(repository, scope, "safe", "authorized passage")
     invalid = FixedReranker([math.nan])

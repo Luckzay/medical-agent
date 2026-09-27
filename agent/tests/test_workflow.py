@@ -11,7 +11,7 @@ from app.core.config import Settings
 from app.main import app
 from app.models.run import MolecularDescriptors, RunCreate, RunStatus
 from app.services.analysis_service import AnalysisService
-from app.services.run_repository import SQLiteRunRepository
+from app.services.run_repository import MySQLRunRepository
 from app.services.run_service import RunConflictError, RunService
 from app.services.workflow import LangGraphAnalysisWorkflow
 
@@ -47,8 +47,7 @@ def settings(tmp_path: Path) -> Settings:
     return Settings(
         internal_token="test-only-agent-token",
         offline_mode=True,
-        database_path=tmp_path / "runs.db",
-        checkpoint_path=tmp_path / "checkpoints.db",
+        testing=True,
     )
 
 
@@ -64,12 +63,11 @@ def make_service(
         analysis,
         checkpointer=None if durable_checkpoints else InMemorySaver(),
         node_hook=hook,
-        checkpoint_path=configured.checkpoint_path,
     )
     return RunService(
         analysis_service=analysis,
         workflow=workflow,
-        repository=SQLiteRunRepository(configured.database_path),
+        repository=MySQLRunRepository(),
         settings=configured,
     )
 
@@ -138,7 +136,7 @@ def test_cancel_wins_completion_race(tmp_path: Path) -> None:
     service.close()
 
 
-def test_sqlite_run_survives_service_reconstruction(tmp_path: Path) -> None:
+def test_mysql_run_survives_service_reconstruction(tmp_path: Path) -> None:
     first = make_service(tmp_path, durable_checkpoints=True)
     first.create(request("durable-run"))
     assert first.wait_for_idle(timeout=5)

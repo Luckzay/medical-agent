@@ -3,9 +3,7 @@ FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     UV_HTTP_TIMEOUT=300 \
-    UV_HTTP_RETRIES=5 \
-    AGENT_DATABASE_PATH=/app/data/agent_runs.db \
-    AGENT_CHECKPOINT_PATH=/app/data/checkpoints.db
+    UV_HTTP_RETRIES=5
 
 WORKDIR /app
 

@@ -18,7 +18,7 @@ from app.services.document_processing import ParserRegistry, StructureFirstChunk
 from app.services.embeddings import EmbeddingValidationError
 from app.services.knowledge_observability import metrics
 from app.services.knowledge_ports import EmbeddingProvider
-from app.services.knowledge_repository import SQLiteCanonicalRepository
+from app.services.knowledge_repository import MySQLCanonicalRepository
 from app.services.vector_index import QdrantVectorStore
 
 _STAGE_ORDER = [
@@ -40,7 +40,7 @@ def safe_diagnostic(exc: Exception) -> str:
 class IngestionService:
     def __init__(
         self,
-        repository: SQLiteCanonicalRepository,
+        repository: MySQLCanonicalRepository,
         parsers: ParserRegistry,
         chunker: StructureFirstChunker,
         embedding: EmbeddingProvider,
@@ -69,13 +69,9 @@ class IngestionService:
         )
         version_id = str(uuid5(NAMESPACE_URL, f"{document_id}|{source_hash}"))
         parser = self.parsers.get(media_type)
-        existing = self.repository.connection.execute(
-            "SELECT payload_json FROM ingestion_jobs WHERE tenant_id=? AND project_id=? "
-            "AND idempotency_key=?",
-            (scope.tenant_id, scope.project_id, idempotency_key),
-        ).fetchone()
+        existing = self.repository.find_job_by_idempotency(scope, idempotency_key)
         if existing is not None:
-            return IngestionJob.model_validate_json(existing[0])
+            return existing
         document = CanonicalDocument(
             document_id=document_id,
             scope=scope,

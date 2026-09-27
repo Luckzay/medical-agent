@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from concurrent.futures import Future, ThreadPoolExecutor, wait
 from functools import partial
-from pathlib import Path
 from threading import RLock
 
 from app.core.config import Settings, get_settings
@@ -11,7 +10,7 @@ from app.services.analysis_service import AnalysisService
 from app.services.builtin_tools import build_tool_registry
 from app.services.run_repository import (
     DuplicateRunRepositoryError,
-    SQLiteRunRepository,
+    MySQLRunRepository,
 )
 from app.services.tool_runtime import ToolRuntime
 from app.services.workflow import AnalysisWorkflow, LangGraphAnalysisWorkflow
@@ -36,25 +35,17 @@ class RunService:
         self,
         analysis_service: AnalysisService | None = None,
         workflow: AnalysisWorkflow | None = None,
-        repository: SQLiteRunRepository | None = None,
+        repository: MySQLRunRepository | None = None,
         runtime: ToolRuntime | None = None,
         *,
         settings: Settings | None = None,
-        database_path: str | Path | None = None,
         worker_count: int | None = None,
     ) -> None:
         configured = settings or get_settings()
         analysis = analysis_service or AnalysisService(configured)
-        self._runtime = runtime or ToolRuntime(
-            build_tool_registry(analysis),
-            database_path or configured.database_path,
-        )
-        self._workflow = workflow or LangGraphAnalysisWorkflow(
-            analysis, checkpoint_path=configured.checkpoint_path, runtime=self._runtime
-        )
-        self._repository = repository or SQLiteRunRepository(
-            database_path or configured.database_path
-        )
+        self._runtime = runtime or ToolRuntime(build_tool_registry(analysis))
+        self._workflow = workflow or LangGraphAnalysisWorkflow(analysis, runtime=self._runtime)
+        self._repository = repository or MySQLRunRepository()
         self._worker_count = worker_count or configured.worker_count
         self._lock = RLock()
         self._executor = ThreadPoolExecutor(

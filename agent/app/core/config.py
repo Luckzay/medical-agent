@@ -1,6 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -9,17 +9,37 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     service_name: str = "medical-agent"
     service_version: str = "0.8.0"
+    testing: bool = False
     internal_token: str = Field(min_length=16)
     offline_mode: bool = True
     pubchem_timeout_seconds: float = Field(default=2.0, gt=0.0, le=10.0)
-    database_path: Path = Path("./data/agent_runs.db")
-    checkpoint_path: Path = Path("./data/checkpoints.db")
-    canonical_database_path: Path = Path("./data/canonical_knowledge.db")
+    mysql_host: str = "127.0.0.1"
+    mysql_port: int = Field(default=3306, ge=1, le=65535)
+    mysql_user: str = "root"
+    mysql_password: SecretStr | None = None
+    mysql_database: str = "ai_medical_db"
+    mysql_connect_timeout_seconds: int = Field(default=10, ge=1, le=120)
+    mysql_read_timeout_seconds: int = Field(default=30, ge=1, le=600)
+    mysql_write_timeout_seconds: int = Field(default=30, ge=1, le=600)
+    redis_url: str = "redis://127.0.0.1:6379/0"
+    redis_checkpoint_prefix: str = "medical_agent_checkpoint"
+    redis_checkpoint_write_prefix: str = "medical_agent_checkpoint_write"
     evidence_tenant_id: str = Field(default="default", min_length=1, max_length=128)
     evidence_project_id: str = Field(default="toxicology", min_length=1, max_length=128)
     evidence_top_k: int = Field(default=10, ge=1, le=100)
     worker_count: int = Field(default=2, ge=1, le=64)
     vector_mode: Literal["disabled", "optional", "required"] = "disabled"
+    lexical_backend: Literal["elasticsearch"] = "elasticsearch"
+    elasticsearch_url: str = "http://127.0.0.1:9200"
+    elasticsearch_index_alias: str = Field(
+        default="medical_toxicology_current",
+        pattern=r"^[a-z0-9][a-z0-9_-]*$",
+    )
+    elasticsearch_username: str | None = None
+    elasticsearch_password: SecretStr | None = None
+    elasticsearch_timeout_seconds: float = Field(default=3.0, gt=0.0, le=120.0)
+    elasticsearch_verify_certs: bool = False
+    elasticsearch_ca_certs: str | None = None
     llm_mode: Literal["disabled", "optional", "required"] = "disabled"
     llm_proxy_url: str = "http://127.0.0.1:8080/internal/v1/llm/chat"
     llm_timeout_seconds: float = Field(default=30.0, gt=0.0, le=600.0)
@@ -32,9 +52,7 @@ class Settings(BaseSettings):
     chat_event_payload_chars: int = Field(default=4000, ge=256, le=32768)
     qdrant_url: str = "http://qdrant:6333"
     qdrant_api_key: SecretStr | None = None
-    qdrant_collection_alias: str = Field(
-        default="toxicology_active", pattern=r"^[a-zA-Z0-9_-]+$"
-    )
+    qdrant_collection_alias: str = Field(default="toxicology_active", pattern=r"^[a-zA-Z0-9_-]+$")
     qdrant_timeout_seconds: float = Field(default=5.0, gt=0.0, le=120.0)
     embedding_provider: Literal["sentence_transformers", "deterministic_test"] = (
         "sentence_transformers"
@@ -71,6 +89,22 @@ class Settings(BaseSettings):
             raise ValueError("chunk_token_overlap must be smaller than chunk_token_budget")
         if self.vector_mode == "required" and not self.qdrant_url:
             raise ValueError("qdrant_url is required in required vector mode")
+        if self.lexical_backend == "elasticsearch" and not self.elasticsearch_url:
+            raise ValueError("elasticsearch_url is required for the elasticsearch lexical backend")
+        username = self.elasticsearch_username
+        password = (
+            self.elasticsearch_password.get_secret_value()
+            if self.elasticsearch_password is not None
+            else None
+        )
+        if (username is None) != (password is None):
+            raise ValueError("elasticsearch username and password must be configured together")
+        if username == "" or password == "":
+            raise ValueError("elasticsearch username and password cannot be empty strings")
+
+        if self.elasticsearch_verify_certs and self.elasticsearch_url.startswith("https://"):
+            if self.elasticsearch_ca_certs and not Path(self.elasticsearch_ca_certs).is_file():
+                raise ValueError("elasticsearch_ca_certs does not exist")
         if self.embedding_provider == "deterministic_test" and self.vector_mode == "required":
             raise ValueError("deterministic_test embeddings cannot be used in required mode")
         if self.reranker_mode != "disabled" and self.reranker_provider == "disabled":
@@ -90,14 +124,9 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_prefix="AGENT_",
+        env_ignore_empty=True,
         extra="ignore",
     )
-
-    def model_post_init(self, __context: Any) -> None:
-        self.database_path.parent.mkdir(parents=True, exist_ok=True)
-        self.checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
-        self.canonical_database_path.parent.mkdir(parents=True, exist_ok=True)
-
 
 @lru_cache
 def get_settings() -> Settings:

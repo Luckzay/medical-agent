@@ -43,9 +43,24 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(
-    title=settings.service_name,
+    title="Medical Agent Service",
+    description="""
+中药科研辅助智能体服务。
+当前版本集成了**活跃的中药毒理专家**能力，支持基于知识库的异步对话、成分分析以及知识库入库与索引管理。
+注意：**超分子文献检索与诊断功能已暂时下线**。
+除 `/health` 接口外，所有 `/internal/v1/*` 接口均需通过 `X-Agent-Token` 进行鉴权。
+""",
     version=settings.service_version,
     lifespan=lifespan,
+    openapi_tags=[
+        {"name": "Chat", "description": "智能体异步对话接口"},
+        {"name": "Runs", "description": "长耗时分析任务管理"},
+        {"name": "Ingestion", "description": "知识库文档异步入库"},
+        {"name": "Documents", "description": "规范化文档与版本管理"},
+        {"name": "Index Management", "description": "向量索引底交代号与同步管理"},
+        {"name": "Metadata", "description": "工具与技能元数据查询"},
+        {"name": "Service", "description": "服务基础功能"},
+    ],
 )
 app.include_router(router)
 app.include_router(management_router)

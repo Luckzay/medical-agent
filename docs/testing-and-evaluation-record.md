@@ -43,7 +43,7 @@ Iteration 4 验证了异步工作流、LangGraph Checkpoint、运行状态持久
 | Legacy Evidence Mappings | 131 |
 | 迁移后记录一致性 | 通过 |
 
-词法检索基于 SQLite FTS5/BM25，并结合结构化字段权重。迁移脚本入口为：
+词法检索基于 Elasticsearch，并结合结构化字段权重。索引构建脚本入口为：
 
 ```bash
 python -m app.scripts.migrate_literature

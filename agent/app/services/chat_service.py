@@ -17,7 +17,7 @@ from app.services.builtin_tools import INTERNAL_TOOL_PERMISSIONS
 from app.services.chat_repository import (
     ChatTurnNotFoundError,
     DuplicateChatTurnError,
-    SQLiteChatRepository,
+    MySQLChatRepository,
 )
 from app.services.llm_proxy import LLMProxyClient
 from app.services.tool_runtime import ToolRuntime
@@ -60,12 +60,12 @@ class ChatTurnService:
         runtime: ToolRuntime,
         *,
         settings: Settings | None = None,
-        repository: SQLiteChatRepository | None = None,
+        repository: MySQLChatRepository | None = None,
         llm: LLMProxyClient | None = None,
     ) -> None:
         self._settings = settings or get_settings()
         self._runtime = runtime
-        self._repository = repository or SQLiteChatRepository(self._settings.database_path)
+        self._repository = repository or MySQLChatRepository()
         self._llm = llm or LLMProxyClient(self._settings)
         self._lock = RLock()
         self._executor: ThreadPoolExecutor | None = None
@@ -124,7 +124,7 @@ class ChatTurnService:
     ) -> None:
         turn_id = self._current_turn_id()
         event = ChatEvent(
-            sequence=self._repository.next_sequence(turn_id),
+            sequence=1,  # Placeholder; MySQL allocates the public sequence under a row lock.
             type=event_type,
             node=node,
             status=status,

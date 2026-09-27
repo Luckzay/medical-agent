@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from app.api import management
 from app.main import app
-from app.services.knowledge_repository import SQLiteCanonicalRepository
+from app.services.knowledge_repository import MySQLCanonicalRepository
 
 AUTH = {
     "X-Agent-Token": "test-only-agent-token",
@@ -17,7 +17,7 @@ AUTH = {
 
 
 def test_management_auth_scope_idempotency_lifecycle_and_degraded_mode(tmp_path: Path) -> None:
-    management._repository = SQLiteCanonicalRepository(tmp_path / "api.db")
+    management._repository = MySQLCanonicalRepository()
     client = TestClient(app)
     payload = {
         "logical_source": "memory:api",
@@ -47,6 +47,11 @@ def test_management_auth_scope_idempotency_lifecycle_and_degraded_mode(tmp_path:
     )
     index = client.get("/internal/v1/evidence/indexes/status", headers=AUTH)
     assert index.status_code == 200 and index.json()["vector_mode"] == "disabled"
+    toxicology = client.get("/internal/v1/toxicology/retrieval/status", headers=AUTH)
+    assert toxicology.status_code == 200
+    assert toxicology.json()["lexical_backend"] == "elasticsearch"
+    assert toxicology.json()["active_lexical_backend"] in {"elasticsearch", None}
+    assert toxicology.json()["degradation"] == ["vector_disabled"]
     for endpoint in ("rebuild", "rollback", "reconcile"):
         response = client.post(f"/internal/v1/evidence/indexes/{endpoint}", headers=headers)
         assert response.status_code == 202

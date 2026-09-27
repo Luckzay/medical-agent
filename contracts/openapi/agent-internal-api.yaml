@@ -389,7 +389,7 @@ components:
       properties:
         engine: { type: string, const: langgraph }
         thread_id: { type: string }
-        checkpoint_backend: { type: string, enum: [sqlite, in_memory, external] }
+        checkpoint_backend: { type: string, enum: [redis, in_memory, external] }
         status: { type: string, enum: [running, completed, failed, cancelled] }
         steps:
           type: array

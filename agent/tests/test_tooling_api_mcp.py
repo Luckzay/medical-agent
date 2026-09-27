@@ -25,10 +25,8 @@ def test_internal_tooling_endpoints_require_auth_and_return_audits(tmp_path: Any
     settings = Settings(
         internal_token=TOKEN,
         offline_mode=True,
-        database_path=tmp_path / "api.db",
-        checkpoint_path=tmp_path / "checkpoint.db",
     )
-    runtime = ToolRuntime(build_tool_registry(AnalysisService(settings)), settings.database_path)
+    runtime = ToolRuntime(build_tool_registry(AnalysisService(settings)))
     runtime.execute(
         "normalize_herbs",
         {"herbs": ["黄芪"]},

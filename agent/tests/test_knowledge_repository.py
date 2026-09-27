@@ -14,7 +14,7 @@ from app.models.knowledge import (
     OwnershipScope,
     SourceLocator,
 )
-from app.services.knowledge_repository import ImmutableVersionError, SQLiteCanonicalRepository
+from app.services.knowledge_repository import ImmutableVersionError, MySQLCanonicalRepository
 
 
 def version(
@@ -54,7 +54,7 @@ def chunk(scope: OwnershipScope, item: DocumentVersion) -> DocumentChunk:
 
 
 def test_repository_dedup_versions_activation_scope_and_history(tmp_path: Path) -> None:
-    repo = SQLiteCanonicalRepository(tmp_path / "canonical.db")
+    repo = MySQLCanonicalRepository()
     a = OwnershipScope(tenant_id="tenant", project_id="a")
     b = OwnershipScope(tenant_id="tenant", project_id="b")
     digest1 = hashlib.sha256(b"one").hexdigest()
@@ -79,7 +79,7 @@ def test_repository_dedup_versions_activation_scope_and_history(tmp_path: Path) 
 
 
 def test_repository_immutable_collision_and_retry_state(tmp_path: Path) -> None:
-    repo = SQLiteCanonicalRepository(tmp_path / "canonical.db")
+    repo = MySQLCanonicalRepository()
     scope = OwnershipScope(tenant_id="t", project_id="p")
     document, first = version(scope, "a", hashlib.sha256(b"a").hexdigest())
     repo.create_version(document, first)

@@ -22,8 +22,9 @@ from app.services.document_processing import (
     StructureFirstChunker,
 )
 from app.services.ingestion import IngestionService
-from app.services.knowledge_repository import _SCHEMA, SQLiteCanonicalRepository
-from app.services.runtime import build_runtime
+from app.services.knowledge_repository import MySQLCanonicalRepository
+from app.services.lexical_store import ElasticsearchLexicalStore
+from app.services.runtime import build_elasticsearch_client, build_runtime
 from app.services.vector_index import IndexManager
 
 TOXICOLOGY_FIELDS = (
@@ -42,7 +43,6 @@ DB_ENV_KEYS = ("DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME")
 
 
 def load_db_environment(env_file: Path | None = None) -> None:
-    """Load unprefixed MySQL settings from the Agent .env without overriding real env vars."""
     path = env_file or Path(__file__).resolve().parents[2] / ".env"
     if not path.is_file():
         return
@@ -68,206 +68,163 @@ def load_records() -> tuple[list[dict[str, Any]], str]:
     )
     try:
         with connection.cursor() as cursor:
-            columns = "SELECT id, herb_name, " + ", ".join(TOXICOLOGY_FIELDS)
-            cursor.execute(columns + " FROM herb_basic ORDER BY id")
+            cursor.execute(
+                "SELECT id, herb_name, "
+                + ", ".join(TOXICOLOGY_FIELDS)
+                + " FROM herb_basic ORDER BY id"
+            )
             herbs = list(cursor.fetchall())
             cursor.execute(
                 "SELECT id AS compound_id, herb_id, compound_name, "
-                "molecular_formula AS formula, cas "
-                "FROM herb_toxiccompound ORDER BY herb_id, id"
+                "molecular_formula AS formula, cas FROM herb_toxiccompound ORDER BY herb_id,id"
             )
             compounds = list(cursor.fetchall())
     finally:
         connection.close()
-
     by_herb: dict[int, list[dict[str, Any]]] = defaultdict(list)
     for compound in compounds:
         by_herb[int(compound.pop("herb_id"))].append(compound)
-
     for herb in herbs:
         herb["reference"] = f"herb_basic:{herb['id']}"
         herb["toxic_compounds"] = by_herb[int(herb["id"])]
-
     return herbs, db_name
 
 
-def sync_structured_sqlite(
-    repository: SQLiteCanonicalRepository,
+def sync_structured_mysql(
+    repository: MySQLCanonicalRepository,
     records: list[dict[str, Any]],
     db_name: str,
-    snapshot: str
+    snapshot: str,
 ) -> None:
-    created_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-    with repository.transaction() as db:
-        # 0. Ensure schema is updated (dropping for rebuild as it's a migration/indexing script)
-        db.execute("DROP TABLE IF EXISTS toxicology_fts")
-        db.execute("DROP TABLE IF EXISTS toxicology_compounds")
-        db.execute("DROP TABLE IF EXISTS toxicology_herbs")
-        db.execute("DROP TABLE IF EXISTS toxicology_snapshots")
+    repository.replace_toxicology_snapshot(records, db_name, snapshot)
 
-        # Re-run CREATE TABLE from repository schema
-        for statement in _SCHEMA.split(";"):
-            if statement.strip():
-                db.execute(statement)
 
-        # 1. Update snapshot
-        db.execute(
-            "INSERT INTO toxicology_snapshots (snapshot_id, source_snapshot, created_at) "
-            "VALUES (?, ?, ?)",
-            (str(uuid4()), snapshot, created_at)
+def elasticsearch_documents(
+    records: list[dict[str, Any]], scope: OwnershipScope, snapshot: str
+) -> list[dict[str, object]]:
+    documents: list[dict[str, object]] = []
+    for record in records:
+        compounds = record.get("toxic_compounds", [])
+        document: dict[str, object] = {
+            "reference": record["reference"],
+            "herb_id": record["id"],
+            "tenant_id": scope.tenant_id,
+            "project_id": scope.project_id,
+            "source_snapshot": snapshot,
+            "name": record["herb_name"],
+            "common_name": record.get("common_name") or "",
+            "compound_names": [item.get("compound_name", "") for item in compounds],
+            "cas_numbers": [item.get("cas", "") for item in compounds if item.get("cas")],
+            "formulas": [item.get("formula", "") for item in compounds if item.get("formula")],
+        }
+        document.update(
+            {
+                field: record.get(field) or ""
+                for field in TOXICOLOGY_FIELDS
+                if field != "link_to_clinical_suggestion"
+            }
         )
+        documents.append(document)
+    return documents
 
-        # 3. Insert herbs and compounds
-        for herb in records:
-            herb_id = herb["id"]
-            db.execute(
-                "INSERT INTO toxicology_herbs (herb_id, name, common_name, "
-                "logical_source, reference, "
-                + ", ".join(TOXICOLOGY_FIELDS) + ", created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (
-                    herb_id,
-                    herb["herb_name"],
-                    herb.get("common_name"),
-                    f"mysql://{db_name}/herb_basic/{herb_id}",
-                    herb["reference"],
-                    *[herb.get(f) for f in TOXICOLOGY_FIELDS],
-                    created_at
-                )
-            )
 
-            compound_names = []
-            cas_numbers = []
-            formulas = []
-            for compound in herb["toxic_compounds"]:
-                c_id = compound["compound_id"]
-                c_name = compound.get("compound_name", "")
-                c_formula = compound.get("formula", "")
-                c_cas = compound.get("cas", "")
-                c_source = f"mysql://{db_name}/herb_toxiccompound/{c_id}"
-
-                db.execute(
-                    "INSERT INTO toxicology_compounds "
-                    "(compound_id, herb_id, name, formula, cas, logical_source, created_at) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    (c_id, herb_id, c_name, c_formula, c_cas, c_source, created_at)
-                )
-
-                if c_name:
-                    compound_names.append(c_name)
-                if c_cas:
-                    cas_numbers.append(c_cas)
-                if c_formula:
-                    formulas.append(c_formula)
-
-            # 4. Insert FTS
-            fts_fields = [f for f in TOXICOLOGY_FIELDS if f != "link_to_clinical_suggestion"]
-            db.execute(
-                "INSERT INTO toxicology_fts (herb_id, name, common_name, "
-                "virulence, toxicity_mechanism, "
-                "pathological_examination, crowd_taboo, symptom_contraindications, adr, "
-                "typical_cases_of_adr, clinical_suggestion, clinical_suggestion_basis, "
-                "compound_names, cas_numbers, formulas) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (
-                    herb_id,
-                    herb["herb_name"],
-                    herb.get("common_name"),
-                    *[herb.get(f) for f in fts_fields],
-                    " ".join(compound_names),
-                    " ".join(cas_numbers),
-                    " ".join(formulas),
-                )
-            )
+def build_elasticsearch_index(
+    store: ElasticsearchLexicalStore,
+    records: list[dict[str, Any]],
+    scope: OwnershipScope,
+    snapshot: str,
+    generation: str,
+) -> str:
+    index = store.versioned_index(generation, snapshot)
+    documents = elasticsearch_documents(records, scope, snapshot)
+    store.create_versioned_index(index, snapshot)
+    indexed = store.bulk_index(index, documents)
+    expected_ids = {str(document["reference"]) for document in documents}
+    if indexed != len(documents) or store.count(index) != len(documents):
+        raise RuntimeError("Elasticsearch document count reconciliation failed")
+    if store.document_ids(index, len(expected_ids) + 1) != expected_ids:
+        raise RuntimeError("Elasticsearch document ID reconciliation failed")
+    store.activate(index)
+    return index
 
 
 def active_chunks(
-    repository: SQLiteCanonicalRepository, scope: OwnershipScope
+    repository: MySQLCanonicalRepository, scope: OwnershipScope
 ) -> list[DocumentChunk]:
-    rows = repository.connection.execute(
-        "SELECT c.payload_json FROM document_chunks c "
-        "JOIN document_versions v ON v.version_id=c.version_id "
-        "JOIN documents d ON d.document_id=v.document_id "
-        "WHERE c.tenant_id=? AND c.project_id=? AND d.status='ready' "
-        "AND v.status='ready' AND d.active_version_id=v.version_id "
-        "ORDER BY d.logical_source, c.ordinal",
-        (scope.tenant_id, scope.project_id),
-    ).fetchall()
-    return [DocumentChunk.model_validate_json(row[0]) for row in rows]
+    return repository.active_chunks(scope)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="从业务 MySQL 幂等构建 canonical SQLite + Qdrant 中药毒理索引"
+        description="从业务 MySQL 构建 canonical 关系数据、Elasticsearch 与 Qdrant 索引"
     )
-    parser.add_argument("--force", action="store_true", help="强制重新构建索引，即使快照未变化")
+    parser.add_argument("--force", action="store_true", help="强制重新构建索引")
+    parser.add_argument(
+        "--targets",
+        default="elasticsearch",
+        help="逗号分隔目标：elasticsearch,qdrant；关系数据始终同步到 MySQL",
+    )
+    parser.add_argument("--dry-run", action="store_true", help="只读取并校验源记录")
+    parser.add_argument("--generation", help="显式版本代号，默认使用 UTC 时间")
     args = parser.parse_args()
+    targets = {item.strip() for item in args.targets.split(",") if item.strip()}
+    unsupported = targets - {"elasticsearch", "qdrant"}
+    if unsupported or not targets:
+        raise SystemExit(f"invalid targets: {','.join(sorted(unsupported)) or '(empty)'}")
 
     settings = get_settings()
-    if settings.vector_mode == "disabled":
-        raise SystemExit("AGENT_VECTOR_MODE must be optional or required")
+    if "qdrant" in targets and settings.vector_mode == "disabled":
+        raise SystemExit("AGENT_VECTOR_MODE must be optional or required when qdrant is targeted")
     if settings.evidence_project_id != "toxicology":
         raise SystemExit("AGENT_EVIDENCE_PROJECT_ID must be toxicology")
-
     records, db_name = load_records()
     if not records:
         raise SystemExit("business database returned no herb toxicology records")
-
     snapshot = hashlib.sha256(
         json.dumps(records, ensure_ascii=False, sort_keys=True, default=str).encode()
     ).hexdigest()
-
-    runtime = build_runtime(settings)
-    assert runtime.store is not None
-
-    active_manifest = runtime.store.active_manifest(settings.qdrant_collection_alias)
-    if active_manifest and active_manifest.source_snapshot == snapshot and not args.force:
-        # Check SQLite snapshot consistency
-        repository = SQLiteCanonicalRepository(settings.canonical_database_path)
-        row = repository.connection.execute(
-            "SELECT source_snapshot FROM toxicology_snapshots"
-        ).fetchone()
-        if row and row[0] == snapshot:
-            print(
-                f"Skipping rebuild: active collection '{active_manifest.collection_name}' "
-                f"is already up-to-date (snapshot {snapshot[:8]})"
-            )
-            return
-
+    generation = args.generation or time.strftime("%Y%m%d%H%M%S", time.gmtime())
     scope = OwnershipScope(
-        tenant_id=settings.evidence_tenant_id,
-        project_id=settings.evidence_project_id,
+        tenant_id=settings.evidence_tenant_id, project_id=settings.evidence_project_id
     )
-    repository = SQLiteCanonicalRepository(settings.canonical_database_path)
+    if args.dry_run:
+        print(
+            json.dumps(
+                {
+                    "dry_run": True,
+                    "records": len(records),
+                    "targets": sorted(targets),
+                    "generation": generation,
+                    "source_snapshot": snapshot,
+                    "document_ids": [record["reference"] for record in records],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return
 
-    # 1. Sync structured SQLite (Transactional)
-    sync_structured_sqlite(repository, records, db_name, snapshot)
-
-    # 2. Tombstone removed records in generic canonical schema
+    started = time.monotonic()
+    repository = MySQLCanonicalRepository()
+    sync_structured_mysql(repository, records, db_name, snapshot)
+    runtime = build_runtime(settings)
     current_sources = {f"mysql://{db_name}/herb_basic/{record['id']}" for record in records}
-    existing = repository.connection.execute(
-        "SELECT document_id, logical_source FROM documents "
-        "WHERE tenant_id=? AND project_id=? AND status != 'tombstoned'",
-        (scope.tenant_id, scope.project_id),
-    ).fetchall()
     tombstoned_count = 0
-    for row in existing:
+    for row in repository.list_active_documents(scope):
         if row["logical_source"] not in current_sources:
             repository.tombstone(scope, str(row["document_id"]))
             tombstoned_count += 1
 
-    # 3. Submit records for ingestion to generic canonical schema
-    chunker = StructureFirstChunker(
-        ChunkingPolicy(
-            token_budget=settings.chunk_token_budget,
-            overlap=settings.chunk_token_overlap,
-            version=settings.chunker_version,
-        )
-    )
     ingestion = IngestionService(
         repository,
         ParserRegistry([PlainTextParser()]),
-        chunker,
+        StructureFirstChunker(
+            ChunkingPolicy(
+                token_budget=settings.chunk_token_budget,
+                overlap=settings.chunk_token_overlap,
+                version=settings.chunker_version,
+            )
+        ),
         runtime.embedding,
         None,
         None,
@@ -280,83 +237,64 @@ def main() -> None:
             logical_source=f"mysql://{db_name}/herb_basic/{record['id']}",
             media_type="text/plain",
             content=content,
-            idempotency_key=(
-                f"toxicology:{record['id']}:"
-                f"{hashlib.sha256(content).hexdigest()}"
-            ),
+            idempotency_key=f"toxicology:{record['id']}:{hashlib.sha256(content).hexdigest()}",
         )
-
-    # 4. Prepare Qdrant index
-    chunks = active_chunks(repository, scope)
-    if not chunks:
-        raise SystemExit("No active chunks found to build index")
-
-    generation = time.strftime("%Y%m%d%H%M%S")
-    manifest = IndexManifest(
-        manifest_id=str(uuid4()),
-        collection_name=f"toxicology_v{generation}_{snapshot[:8]}",
-        alias=settings.qdrant_collection_alias,
-        generation=generation,
-        schema_version=1,
-        vector_name="dense",
-        dimension=runtime.embedding.dimension,
-        normalized=settings.embedding_normalize,
-        embedding_fingerprint=runtime.embedding.fingerprint,
-        payload_schema_version=1,
-        source_snapshot=snapshot,
-    )
-
-    started = time.monotonic()
-    vectors = runtime.embedding.embed_documents([chunk.text for chunk in chunks])
-
-    # 5. Validation before publishing
-    # Validate herb count
-    h_count = repository.connection.execute(
-        "SELECT COUNT(*) FROM toxicology_herbs"
-    ).fetchone()[0]
-    if h_count != len(records):
-        raise RuntimeError(f"Validation failed: SQLite herb count {h_count} != {len(records)}")
-
-    # Validate compound orphan=0
-    orphan_compounds = repository.connection.execute(
-        "SELECT COUNT(*) FROM toxicology_compounds "
-        "WHERE herb_id NOT IN (SELECT herb_id FROM toxicology_herbs)"
-    ).fetchone()[0]
-    if orphan_compounds > 0:
+    herb_count, orphan_compounds = repository.toxicology_counts()
+    if herb_count != len(records):
+        raise RuntimeError(f"Validation failed: MySQL herb count {herb_count} != {len(records)}")
+    if orphan_compounds:
         raise RuntimeError(f"Validation failed: {orphan_compounds} orphan compounds found")
 
-    # Validate chunks and vectors count
-    if len(chunks) != len(vectors):
-        raise RuntimeError(
-            f"Validation failed: chunks {len(chunks)} != vectors {len(vectors)}"
-        )
-
-    # 6. Publish Qdrant index
-    active = IndexManager(runtime.store).rebuild(
-        manifest, chunks, vectors, smoke_vector=vectors[0] if vectors else None
-    )
-
-    # 7. Final Snapshot Validation
-    sq_snapshot = repository.connection.execute(
-        "SELECT source_snapshot FROM toxicology_snapshots"
-    ).fetchone()[0]
-    if sq_snapshot != active.source_snapshot:
-        raise RuntimeError(
-            f"Validation failed: SQLite {sq_snapshot} != Qdrant {active.source_snapshot}"
-        )
-
-    result = {
+    result: dict[str, object] = {
         "source": f"mysql://{db_name} herb_basic + herb_toxiccompound",
         "records": len(records),
         "tombstoned": tombstoned_count,
-        "chunks": len(chunks),
-        "canonical_database": str(settings.canonical_database_path),
-        "collection": active.collection_name,
-        "alias": active.alias,
-        "status": str(active.status),
+        "targets": sorted(targets),
+        "canonical_database": settings.mysql_database,
         "source_snapshot": snapshot,
-        "elapsed_seconds": round(time.monotonic() - started, 3),
     }
+    if "elasticsearch" in targets:
+        lexical = ElasticsearchLexicalStore(
+            build_elasticsearch_client(settings),
+            settings.elasticsearch_index_alias,
+            timeout_seconds=settings.elasticsearch_timeout_seconds,
+        )
+        result["elasticsearch_index"] = build_elasticsearch_index(
+            lexical, records, scope, snapshot, generation
+        )
+        result["elasticsearch_alias"] = settings.elasticsearch_index_alias
+    if "qdrant" in targets:
+        if runtime.store is None:
+            raise RuntimeError("Qdrant target selected but vector store is unavailable")
+        chunks = active_chunks(repository, scope)
+        if not chunks:
+            raise RuntimeError("No active chunks found to build Qdrant index")
+        vectors = runtime.embedding.embed_documents([chunk.text for chunk in chunks])
+        manifest = IndexManifest(
+            manifest_id=str(uuid4()),
+            collection_name=f"toxicology_v{generation}_{snapshot[:8]}",
+            alias=settings.qdrant_collection_alias,
+            generation=generation,
+            schema_version=1,
+            vector_name="dense",
+            dimension=runtime.embedding.dimension,
+            normalized=settings.embedding_normalize,
+            embedding_fingerprint=runtime.embedding.fingerprint,
+            payload_schema_version=1,
+            source_snapshot=snapshot,
+        )
+        active = IndexManager(runtime.store).rebuild(
+            manifest, chunks, vectors, smoke_vector=vectors[0] if vectors else None
+        )
+        result.update(
+            {
+                "chunks": len(chunks),
+                "collection": active.collection_name,
+                "qdrant_alias": active.alias,
+                "qdrant_status": str(active.status),
+            }
+        )
+    result["elapsed_seconds"] = round(time.monotonic() - started, 3)
     print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
 
 

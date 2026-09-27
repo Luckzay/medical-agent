@@ -13,12 +13,12 @@ from app.models.knowledge import (
 )
 from app.services.embeddings import DeterministicTestEmbedding
 from app.services.hybrid_retrieval import HybridRetriever, reciprocal_rank_fusion
-from app.services.knowledge_repository import SQLiteCanonicalRepository
+from app.services.knowledge_repository import MySQLCanonicalRepository
 from app.services.vector_index import QdrantVectorStore
 
 
 def add_chunk(
-    repo: SQLiteCanonicalRepository,
+    repo: MySQLCanonicalRepository,
     scope: OwnershipScope,
     name: str,
     text: str,
@@ -66,7 +66,7 @@ def test_rrf_is_stable_and_exact_identifiers_win() -> None:
 
 
 def test_hybrid_semantic_scope_broken_lineage_and_degradation(tmp_path: Path) -> None:
-    repo = SQLiteCanonicalRepository(tmp_path / "hybrid.db")
+    repo = MySQLCanonicalRepository()
     scope = OwnershipScope(tenant_id="t", project_id="p")
     other = OwnershipScope(tenant_id="t", project_id="other")
     semantic = add_chunk(repo, scope, "semantic", "multilingual botanical assembly")

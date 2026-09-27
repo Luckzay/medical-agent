@@ -15,9 +15,6 @@ from app.services.llm_proxy import LLMProxyClient, LLMProxyError
 def settings(tmp_path: Path, *, stream_mode: str = "required") -> Settings:
     return Settings(
         internal_token="test-only-agent-token",
-        database_path=tmp_path / "runs.db",
-        checkpoint_path=tmp_path / "checkpoints.db",
-        canonical_database_path=tmp_path / "canonical.db",
         llm_proxy_url="http://go/internal/v1/llm/chat",
         llm_stream_mode=stream_mode,
     )

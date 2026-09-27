@@ -14,7 +14,7 @@ from app.core.config import Settings
 from app.main import app
 from app.models.chat import ChatTurnCreate
 from app.models.tooling import ToolDefinition
-from app.services.chat_repository import SQLiteChatRepository
+from app.services.chat_repository import MySQLChatRepository
 from app.services.chat_service import ChatTurnService
 from app.services.llm_proxy import LLMChatResult, LLMToolCall, LLMToolCallFunction
 from app.services.tool_registry import ToolRegistry
@@ -94,13 +94,11 @@ def service_factory(tmp_path: Path) -> Iterator[Any]:
         max_rounds: int = 8,
         max_calls: int = 12,
         gate: tuple[Event, Event] | None = None,
-    ) -> tuple[ChatTurnService, ScriptedLLM, Path]:
-        database = tmp_path / f"chat-{len(services)}.db"
+    ) -> tuple[ChatTurnService, ScriptedLLM, MySQLChatRepository]:
+        repository = MySQLChatRepository()
         settings = Settings(
             internal_token="test-only-agent-token",
-            database_path=database,
-            checkpoint_path=tmp_path / "checkpoints.db",
-            canonical_database_path=tmp_path / "canonical.db",
+            testing=True,
             chat_max_agent_rounds=max_rounds,
             chat_max_tool_calls=max_calls,
         )
@@ -130,11 +128,16 @@ def service_factory(tmp_path: Path) -> Iterator[Any]:
                 handler=echo,
             )
         )
-        runtime = ToolRuntime(registry, database)
+        runtime = ToolRuntime(registry)
         llm = ScriptedLLM(responses, gate)
-        service = ChatTurnService(runtime, settings=settings, llm=llm)  # type: ignore[arg-type]
+        service = ChatTurnService(
+            runtime,
+            settings=settings,
+            repository=repository,
+            llm=llm,  # type: ignore[arg-type]
+        )
         services.append(service)
-        return service, llm, database
+        return service, llm, repository
 
     yield factory
     for service in services:
@@ -285,11 +288,11 @@ def test_event_increment_and_auth(service_factory: Any) -> None:
         app.dependency_overrides.pop(get_chat_service, None)
 
 
-def test_sqlite_persistence(service_factory: Any) -> None:
+def test_mysql_persistence(service_factory: Any) -> None:
     service, _, database = service_factory([LLMChatResult(content="持久化回答")])
     service.create(request("persisted"))
     assert service.wait_for_idle(2)
-    reopened = SQLiteChatRepository(database)
+    reopened = MySQLChatRepository()
     try:
         result = reopened.get("persisted")
         assert result.assistant_message == (

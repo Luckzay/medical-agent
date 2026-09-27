@@ -27,11 +27,15 @@ import (
 // @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
 
 // @host      localhost:8080
-// @BasePath  /api
+// @BasePath  /
 
 // @securityDefinitions.apikey BearerAuth
 // @in header
 // @name Authorization
+
+// @securityDefinitions.apikey AgentTokenAuth
+// @in header
+// @name X-Agent-Token
 func main() {
 	logger, _ := zap.NewProduction()
 	defer logger.Sync()

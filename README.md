@@ -1,5 +1,7 @@
 # 中药毒理与循证数据库平台
 
+[📖 API 文档与联调指引](docs/API_GUIDE.md)
+
 ## macOS / Linux 本地调试
 
 ### 1. 环境要求
@@ -208,9 +210,9 @@ curl -X POST http://127.0.0.1:8090/internal/v1/runs \
   }' | python -m json.tool
 ```
 
-Iteration 4 将任务执行改为持久化异步模式。创建接口先把任务写入 SQLite，再立即返回 `status=running`；后台线程依次执行 `normalize → finalize`。Go 查询运行中任务时会向 Python Agent 对账，并在完成后把 `analysis_result` 和 `workflow` 保存到 MySQL。
+Iteration 4 将任务执行改为持久化异步模式。创建接口先把任务写入 MySQL，再立即返回 `status=running`；后台线程依次执行 `normalize → finalize`。Go 查询运行中任务时会向 Python Agent 对账，并在完成后把 `analysis_result` 和 `workflow` 保存到 MySQL。
 
-LangGraph Checkpoint 使用独立的 SQLite 数据库，`run_id` 仍作为 `thread_id`。Python Agent 重启后会扫描持久化的 `running` 任务：已有 Checkpoint 的任务从断点继续，没有 Checkpoint 的任务从原始输入重新开始。Docker Compose 使用 `agent_data` 数据卷保存两个 SQLite 文件。
+LangGraph Checkpoint 使用 Redis Stack，`run_id` 仍作为 `thread_id`。Python Agent 重启后会扫描 MySQL 中持久化的 `running` 任务，并通过 Redis checkpoint 从断点继续。Docker Compose 使用既有 MySQL 与 Redis 服务持久化运行状态。删除旧本地数据前，请先在仓库外部导出并校验所需历史记录；本仓库不提供旧存储迁移脚本。
 
 可以轮询查询结果：
 

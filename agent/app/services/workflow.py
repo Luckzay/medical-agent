@@ -1,17 +1,16 @@
 from __future__ import annotations
 
 import logging
-import sqlite3
 from collections.abc import Callable
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import NotRequired, Protocol, TypedDict, cast
 
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import InMemorySaver
-from langgraph.checkpoint.sqlite import SqliteSaver
+from langgraph.checkpoint.redis import RedisSaver
 from langgraph.graph import END, START, StateGraph
+from redis import Redis
 
 from app.core.config import get_settings
 from app.models.run import (
@@ -81,27 +80,31 @@ class LangGraphAnalysisWorkflow:
         analysis: AnalysisService,
         checkpointer: BaseCheckpointSaver[str] | None = None,
         node_hook: NodeHook | None = None,
-        checkpoint_path: str | Path | None = None,
         runtime: ToolRuntime | None = None,
         llm: LLMProxyClient | None = None,
     ) -> None:
+        settings = get_settings()
         self._analysis = analysis
-        self._runtime = runtime or ToolRuntime(
-            build_tool_registry(analysis), get_settings().database_path
-        )
-        self._llm = llm or LLMProxyClient(get_settings())
+        self._runtime = runtime or ToolRuntime(build_tool_registry(analysis))
+        self._llm = llm or LLMProxyClient(settings)
         self._owns_runtime = runtime is None
         self._node_hook = node_hook
-        self._owned_connection: sqlite3.Connection | None = None
-        if checkpointer is None:
-            path = Path(checkpoint_path or get_settings().checkpoint_path)
-            path.parent.mkdir(parents=True, exist_ok=True)
-            connection = sqlite3.connect(path, check_same_thread=False, timeout=5.0)
-            connection.execute("PRAGMA journal_mode=WAL")
-            connection.execute("PRAGMA busy_timeout=5000")
-            self._owned_connection = connection
-            self._checkpointer: BaseCheckpointSaver[str] = SqliteSaver(connection)
-            self._checkpoint_backend = "sqlite"
+        self._owned_redis: Redis | None = None
+        self._checkpointer: BaseCheckpointSaver[str]
+        if checkpointer is None and getattr(settings, "testing", False):
+            self._checkpointer = InMemorySaver()
+            self._checkpoint_backend = "in_memory"
+        elif checkpointer is None:
+            redis_client = Redis.from_url(settings.redis_url)
+            saver = RedisSaver(
+                redis_client=redis_client,
+                checkpoint_prefix=settings.redis_checkpoint_prefix,
+                checkpoint_write_prefix=settings.redis_checkpoint_write_prefix,
+            )
+            saver.setup()
+            self._owned_redis = redis_client
+            self._checkpointer = saver
+            self._checkpoint_backend = "redis"
         else:
             self._checkpointer = checkpointer
             self._checkpoint_backend = (
@@ -267,8 +270,9 @@ class LangGraphAnalysisWorkflow:
             self._checkpointer.delete_thread(thread_id)
 
     def close(self) -> None:
-        if self._owned_connection is not None:
-            self._owned_connection.close()
-            self._owned_connection = None
+        if self._owned_redis is not None:
+            self._owned_redis.close()
+            self._owned_redis.connection_pool.disconnect()
+            self._owned_redis = None
         if self._owns_runtime:
             self._runtime.close()
