@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
 from app.main import app
-from app.services.run_service import run_service
+from app.services.runtime import run_service
 
 client = TestClient(app)
 AUTH_HEADERS = {"X-Agent-Token": "test-only-agent-token"}

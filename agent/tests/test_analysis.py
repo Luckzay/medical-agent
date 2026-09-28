@@ -1,6 +1,6 @@
 from app.core.config import Settings
 from app.models.run import MolecularDescriptors
-from app.services.analysis_service import AnalysisService, normalize_herb, score_candidate
+from app.services.agent.analysis import AnalysisService, normalize_herb, score_candidate
 
 
 class UnavailableDescriptors:

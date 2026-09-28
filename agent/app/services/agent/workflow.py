@@ -25,10 +25,10 @@ from app.models.tooling import (
     NormalizeHerbsOutput,
     ToolExecutionContext,
 )
-from app.services.analysis_service import AnalysisService
-from app.services.builtin_tools import INTERNAL_TOOL_PERMISSIONS, build_tool_registry
-from app.services.llm_proxy import LLMProxyClient
-from app.services.tool_runtime import ToolRuntime
+from app.services.agent.analysis import AnalysisService
+from app.services.infrastructure.llm_proxy import LLMProxyClient
+from app.services.tools.builtin import INTERNAL_TOOL_PERMISSIONS, build_tool_registry
+from app.services.tools.runtime import ToolRuntime
 
 logger = logging.getLogger(__name__)
 NodeHook = Callable[[str], None]

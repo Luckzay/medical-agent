@@ -4,12 +4,16 @@ from dataclasses import dataclass
 from time import monotonic
 
 from app.models.knowledge import DocumentChunk, OwnershipScope, RetrievalDiagnostics
-from app.services.embeddings import EmbeddingProvider
-from app.services.knowledge_observability import metrics
-from app.services.knowledge_repository import MySQLCanonicalRepository
-from app.services.lexical_store import LexicalStore, LexicalStoreError
-from app.services.rerankers import RequiredRerankerError, RerankerProvider, validate_scores
-from app.services.vector_index import QdrantVectorStore
+from app.services.knowledge.core.observability import metrics
+from app.services.knowledge.retrieval.rerankers import (
+    RequiredRerankerError,
+    RerankerProvider,
+    validate_scores,
+)
+from app.services.knowledge.storage.embedding import EmbeddingProvider
+from app.services.knowledge.storage.lexical import LexicalStore, LexicalStoreError
+from app.services.knowledge.storage.mysql_repository import MySQLCanonicalRepository
+from app.services.knowledge.storage.vector import QdrantVectorStore
 
 
 @dataclass(frozen=True)

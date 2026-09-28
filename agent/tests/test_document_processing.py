@@ -3,14 +3,14 @@ from __future__ import annotations
 import pytest
 
 from app.models.knowledge import BlockType, OwnershipScope
-from app.services.document_processing import (
+from app.services.knowledge.core.ports import UnsupportedMediaTypeError
+from app.services.knowledge.processing.documents import (
     ChunkingPolicy,
     MarkdownParser,
     ParserRegistry,
     PlainTextParser,
     StructureFirstChunker,
 )
-from app.services.knowledge_ports import UnsupportedMediaTypeError
 
 
 def test_registry_text_markdown_headings_positions_and_errors() -> None:

@@ -15,17 +15,20 @@ from dotenv import dotenv_values
 
 from app.core.config import get_settings
 from app.models.knowledge import DocumentChunk, IndexManifest, OwnershipScope
-from app.services.document_processing import (
+from app.services.knowledge.processing.documents import (
     ChunkingPolicy,
     ParserRegistry,
     PlainTextParser,
     StructureFirstChunker,
 )
-from app.services.ingestion import IngestionService
-from app.services.knowledge_repository import MySQLCanonicalRepository
-from app.services.lexical_store import ElasticsearchLexicalStore
-from app.services.runtime import build_elasticsearch_client, build_runtime
-from app.services.vector_index import IndexManager
+from app.services.knowledge.processing.ingestion import IngestionService
+from app.services.knowledge.storage.factory import (
+    build_elasticsearch_client,
+    build_vector_runtime,
+)
+from app.services.knowledge.storage.lexical import ElasticsearchLexicalStore
+from app.services.knowledge.storage.mysql_repository import MySQLCanonicalRepository
+from app.services.knowledge.storage.vector import IndexManager
 
 TOXICOLOGY_FIELDS = (
     "virulence",
@@ -207,7 +210,7 @@ def main() -> None:
     started = time.monotonic()
     repository = MySQLCanonicalRepository()
     sync_structured_mysql(repository, records, db_name, snapshot)
-    runtime = build_runtime(settings)
+    runtime = build_vector_runtime(settings)
     current_sources = {f"mysql://{db_name}/herb_basic/{record['id']}" for record in records}
     tombstoned_count = 0
     for row in repository.list_active_documents(scope):

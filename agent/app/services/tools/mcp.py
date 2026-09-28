@@ -14,8 +14,8 @@ from app.models.tooling import (
     SearchMedicalKnowledgeInput,
     ToolExecutionContext,
 )
-from app.services.builtin_tools import MCP_TOOL_PERMISSIONS
-from app.services.tool_runtime import ToolRuntime
+from app.services.tools.builtin import MCP_TOOL_PERMISSIONS
+from app.services.tools.runtime import ToolRuntime
 
 logger = logging.getLogger(__name__)
 

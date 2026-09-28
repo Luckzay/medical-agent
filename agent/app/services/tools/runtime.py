@@ -11,8 +11,8 @@ from uuid import uuid4
 from pydantic import BaseModel, ValidationError
 
 from app.models.tooling import ToolAudit, ToolExecutionContext
-from app.services.mysql import MySQLDatabase
-from app.services.tool_registry import ToolRegistry
+from app.services.infrastructure.mysql import MySQLDatabase
+from app.services.tools.registry import ToolRegistry
 
 
 class ToolExecutionError(RuntimeError):

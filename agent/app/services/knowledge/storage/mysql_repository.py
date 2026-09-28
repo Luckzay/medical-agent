@@ -16,7 +16,7 @@ from app.models.knowledge import (
     OwnershipScope,
     SourceLocator,
 )
-from app.services.mysql import MySQLDatabase
+from app.services.infrastructure.mysql import MySQLDatabase
 
 
 class ImmutableVersionError(ValueError):

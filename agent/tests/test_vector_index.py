@@ -13,13 +13,17 @@ from app.models.knowledge import (
     OwnershipScope,
     SourceLocator,
 )
-from app.services.embeddings import (
+from app.services.knowledge.storage.embedding import (
     DeterministicTestEmbedding,
     EmbeddingValidationError,
     LazySentenceTransformerEmbedding,
 )
-from app.services.knowledge_repository import MySQLCanonicalRepository
-from app.services.vector_index import IndexManager, ManifestMismatchError, QdrantVectorStore
+from app.services.knowledge.storage.mysql_repository import MySQLCanonicalRepository
+from app.services.knowledge.storage.vector import (
+    IndexManager,
+    ManifestMismatchError,
+    QdrantVectorStore,
+)
 
 
 def manifest(name: str, fingerprint: str, dimension: int = 8) -> IndexManifest:

@@ -9,7 +9,7 @@ import httpx
 import pytest
 
 from app.core.config import Settings
-from app.services.llm_proxy import LLMProxyClient, LLMProxyError
+from app.services.infrastructure.llm_proxy import LLMProxyClient, LLMProxyError
 
 
 def settings(tmp_path: Path, *, stream_mode: str = "required") -> Settings:
@@ -39,7 +39,7 @@ def run_with_client(
     callback: Callable[[str], None] | None = None,
 ) -> Any:
     real_client = proxy._test_http_client  # type: ignore[attr-defined]
-    with patch("app.services.llm_proxy.httpx.Client", return_value=real_client):
+    with patch("app.services.infrastructure.llm_proxy.httpx.Client", return_value=real_client):
         return proxy.stream_chat(
             messages=[{"role": "user", "content": "hello"}], on_delta=callback
         )
@@ -110,7 +110,7 @@ def test_stream_chat_optional_falls_back_once(tmp_path: Path) -> None:
     proxy = LLMProxyClient(settings(tmp_path, stream_mode="optional"))
     deltas: list[str] = []
 
-    with patch("app.services.llm_proxy.httpx.Client", side_effect=clients):
+    with patch("app.services.infrastructure.llm_proxy.httpx.Client", side_effect=clients):
         result = proxy.stream_chat(
             messages=[{"role": "user", "content": "hello"}], on_delta=deltas.append
         )

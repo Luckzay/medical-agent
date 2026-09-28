@@ -5,11 +5,11 @@ from unittest.mock import MagicMock, patch
 from app.models.knowledge import OwnershipScope
 from app.models.tooling import SearchMedicalKnowledgeInput
 from app.scripts.build_toxicology_index import load_db_environment, sync_structured_mysql
-from app.services.embeddings import DeterministicTestEmbedding
-from app.services.knowledge_repository import MySQLCanonicalRepository
-from app.services.lexical_store import LexicalSearchResult, RetrievalCandidate
-from app.services.runtime import VectorRuntime
-from app.services.toxicology_search import search_toxicology
+from app.services.knowledge.retrieval.toxicology import search_toxicology
+from app.services.knowledge.storage.embedding import DeterministicTestEmbedding
+from app.services.knowledge.storage.factory import VectorRuntime
+from app.services.knowledge.storage.lexical import LexicalSearchResult, RetrievalCandidate
+from app.services.knowledge.storage.mysql_repository import MySQLCanonicalRepository
 
 
 def records() -> list[dict[str, object]]:
@@ -68,7 +68,10 @@ def test_search_uses_elasticsearch_identifiers_and_mysql_payload() -> None:
     settings.lexical_candidate_limit = 10
     settings.vector_candidate_limit = 10
     vector = VectorRuntime(DeterministicTestEmbedding(8), None, None)
-    with patch("app.services.toxicology_search.build_lexical_store", return_value=lexical):
+    with patch(
+        "app.services.knowledge.retrieval.toxicology.build_lexical_store",
+        return_value=lexical,
+    ):
         output = search_toxicology(
             SearchMedicalKnowledgeInput(query="附子"),
             settings,

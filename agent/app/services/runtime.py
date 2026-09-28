@@ -1,108 +1,32 @@
+"""Application composition root.
+
+This module is the only service module allowed to assemble dependencies across the
+agent, knowledge, tools, and infrastructure layers.
+"""
+
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import UTC, datetime
-from functools import lru_cache
-from uuid import uuid4
-
-from elasticsearch import Elasticsearch
-from qdrant_client import QdrantClient
-
 from app.core.config import Settings, get_settings
-from app.models.knowledge import IndexManifest
-from app.services.embeddings import DeterministicTestEmbedding, LazySentenceTransformerEmbedding
-from app.services.knowledge_repository import MySQLCanonicalRepository
-from app.services.lexical_store import ElasticsearchLexicalStore, LexicalStore
-from app.services.vector_index import QdrantVectorStore
+from app.services.agent.analysis import AnalysisService
+from app.services.agent.run.service import RunService
+from app.services.knowledge.storage.factory import get_vector_runtime
+from app.services.tools.builtin import build_tool_registry
+from app.services.tools.runtime import ToolRuntime
 
 
-@dataclass(frozen=True)
-class VectorRuntime:
-    embedding: DeterministicTestEmbedding | LazySentenceTransformerEmbedding
-    store: QdrantVectorStore | None
-    manifest: IndexManifest | None
-
-
-def build_elasticsearch_client(settings: Settings) -> Elasticsearch:
-    basic_auth = None
-    if settings.elasticsearch_username:
-        basic_auth = (
-            settings.elasticsearch_username,
-            settings.elasticsearch_password.get_secret_value()
-            if settings.elasticsearch_password
-            else "",
-        )
-    options: dict[str, object] = {
-        "basic_auth": basic_auth,
-        "request_timeout": settings.elasticsearch_timeout_seconds,
-        "verify_certs": settings.elasticsearch_verify_certs,
-    }
-    if settings.elasticsearch_ca_certs:
-        options["ca_certs"] = settings.elasticsearch_ca_certs
-    return Elasticsearch(settings.elasticsearch_url, **options)  # type: ignore[arg-type]
-
-
-def build_lexical_store(
-    settings: Settings | None = None,
-    repository: MySQLCanonicalRepository | None = None,
-) -> LexicalStore:
-    del repository
-    settings = settings or get_settings()
-    return ElasticsearchLexicalStore(
-        build_elasticsearch_client(settings),
-        settings.elasticsearch_index_alias,
-        timeout_seconds=settings.elasticsearch_timeout_seconds,
+def build_run_service(settings: Settings | None = None) -> RunService:
+    configured = settings or get_settings()
+    analysis = AnalysisService(configured)
+    tool_runtime = ToolRuntime(build_tool_registry(analysis))
+    return RunService(
+        analysis_service=analysis,
+        runtime=tool_runtime,
+        settings=configured,
     )
-
-
-def build_runtime(settings: Settings | None = None) -> VectorRuntime:
-    settings = settings or get_settings()
-    repository = MySQLCanonicalRepository()
-    if settings.vector_mode == "disabled":
-        return VectorRuntime(DeterministicTestEmbedding(settings.embedding_dimension), None, None)
-    if settings.embedding_provider != "sentence_transformers":
-        raise ValueError("real vector modes require sentence_transformers")
-    embedding = LazySentenceTransformerEmbedding(
-        settings.embedding_model,
-        settings.embedding_revision,
-        settings.embedding_dimension,
-        normalize=settings.embedding_normalize,
-        batch_size=settings.embedding_batch_size,
-        retries=settings.embedding_retries,
-        timeout_seconds=settings.embedding_timeout_seconds,
-        device=settings.embedding_device,
-        max_seq_length=settings.embedding_max_seq_length,
-    )
-    client = QdrantClient(
-        url=settings.qdrant_url,
-        api_key=settings.qdrant_api_key.get_secret_value() if settings.qdrant_api_key else None,
-        timeout=max(1, int(settings.qdrant_timeout_seconds)),
-    )
-    store = QdrantVectorStore(client, repository)
-    active = store.active_manifest(settings.qdrant_collection_alias)
-    if active is not None:
-        return VectorRuntime(embedding, store, active)
-    generation = datetime.now(UTC).strftime("%Y%m%d%H%M%S")
-    manifest = IndexManifest(
-        manifest_id=str(uuid4()),
-        collection_name=f"toxicology_v{generation}",
-        alias=settings.qdrant_collection_alias,
-        generation=generation,
-        schema_version=1,
-        vector_name="dense",
-        dimension=settings.embedding_dimension,
-        normalized=settings.embedding_normalize,
-        embedding_fingerprint=embedding.fingerprint,
-        payload_schema_version=1,
-        source_snapshot="pending",
-    )
-    return VectorRuntime(embedding, store, manifest)
-
-
-@lru_cache(maxsize=1)
-def get_vector_runtime() -> VectorRuntime:
-    return build_runtime(get_settings())
 
 
 def warm_vector_runtime() -> None:
     get_vector_runtime().embedding.embed_query("中药毒理知识检索预热")
+
+
+run_service = build_run_service()

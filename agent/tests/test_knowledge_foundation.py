@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 from app.core.config import Settings
 from app.models.knowledge import BlockType, NormalizedBlock, SourceLocator
-from app.services.knowledge_ports import DocumentParser
+from app.services.knowledge.core.ports import DocumentParser
 
 
 def settings(**values: object) -> Settings:

@@ -11,9 +11,8 @@ from fastapi.responses import JSONResponse, Response
 from app.api.management import router as management_router
 from app.api.routes import chat_service, router
 from app.core.config import get_settings
-from app.services.mcp_server import RestartableMCPApplication
-from app.services.run_service import run_service
-from app.services.runtime import warm_vector_runtime
+from app.services.runtime import run_service, warm_vector_runtime
+from app.services.tools.mcp import RestartableMCPApplication
 
 logger = logging.getLogger(__name__)
 

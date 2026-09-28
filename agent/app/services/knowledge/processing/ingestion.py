@@ -14,12 +14,12 @@ from app.models.knowledge import (
     OwnershipScope,
     SourceLocator,
 )
-from app.services.document_processing import ParserRegistry, StructureFirstChunker
-from app.services.embeddings import EmbeddingValidationError
-from app.services.knowledge_observability import metrics
-from app.services.knowledge_ports import EmbeddingProvider
-from app.services.knowledge_repository import MySQLCanonicalRepository
-from app.services.vector_index import QdrantVectorStore
+from app.services.knowledge.core.observability import metrics
+from app.services.knowledge.core.ports import EmbeddingProvider
+from app.services.knowledge.processing.documents import ParserRegistry, StructureFirstChunker
+from app.services.knowledge.storage.embedding import EmbeddingValidationError
+from app.services.knowledge.storage.mysql_repository import MySQLCanonicalRepository
+from app.services.knowledge.storage.vector import QdrantVectorStore
 
 _STAGE_ORDER = [
     IngestionStage.RECEIVED,

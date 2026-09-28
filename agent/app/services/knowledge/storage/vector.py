@@ -7,7 +7,7 @@ from uuid import NAMESPACE_URL, uuid5
 from qdrant_client import QdrantClient, models
 
 from app.models.knowledge import DocumentChunk, IndexManifest, ManifestStatus, OwnershipScope
-from app.services.knowledge_repository import MySQLCanonicalRepository
+from app.services.knowledge.storage.mysql_repository import MySQLCanonicalRepository
 
 
 class ManifestMismatchError(ValueError):

@@ -8,16 +8,16 @@ from typing import Any
 import pytest
 
 from app.models.knowledge import OwnershipScope
-from app.services.embeddings import DeterministicTestEmbedding
-from app.services.hybrid_retrieval import HybridRetriever
-from app.services.knowledge_repository import MySQLCanonicalRepository
-from app.services.rerankers import (
+from app.services.knowledge.retrieval.hybrid import HybridRetriever
+from app.services.knowledge.retrieval.rerankers import (
     DeterministicTestReranker,
     LazyCrossEncoderReranker,
     RequiredRerankerError,
     RerankerError,
     validate_scores,
 )
+from app.services.knowledge.storage.embedding import DeterministicTestEmbedding
+from app.services.knowledge.storage.mysql_repository import MySQLCanonicalRepository
 from tests.test_hybrid_retrieval import add_chunk
 
 

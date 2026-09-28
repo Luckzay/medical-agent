@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from app.api import management
 from app.main import app
-from app.services.knowledge_repository import MySQLCanonicalRepository
+from app.services.knowledge.storage.mysql_repository import MySQLCanonicalRepository
 
 AUTH = {
     "X-Agent-Token": "test-only-agent-token",

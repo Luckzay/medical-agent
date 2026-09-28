@@ -11,10 +11,10 @@ from app.models.knowledge import (
     OwnershipScope,
     SourceLocator,
 )
-from app.services.embeddings import DeterministicTestEmbedding
-from app.services.hybrid_retrieval import HybridRetriever, reciprocal_rank_fusion
-from app.services.knowledge_repository import MySQLCanonicalRepository
-from app.services.vector_index import QdrantVectorStore
+from app.services.knowledge.retrieval.hybrid import HybridRetriever, reciprocal_rank_fusion
+from app.services.knowledge.storage.embedding import DeterministicTestEmbedding
+from app.services.knowledge.storage.mysql_repository import MySQLCanonicalRepository
+from app.services.knowledge.storage.vector import QdrantVectorStore
 
 
 def add_chunk(

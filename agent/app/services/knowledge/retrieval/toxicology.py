@@ -6,9 +6,13 @@ from typing import Any, cast
 from app.core.config import Settings
 from app.models.knowledge import OwnershipScope
 from app.models.tooling import SearchMedicalKnowledgeInput, SearchMedicalKnowledgeOutput
-from app.services.hybrid_retrieval import HybridRetriever
-from app.services.knowledge_repository import MySQLCanonicalRepository
-from app.services.runtime import VectorRuntime, build_lexical_store, get_vector_runtime
+from app.services.knowledge.retrieval.hybrid import HybridRetriever
+from app.services.knowledge.storage.factory import (
+    VectorRuntime,
+    build_lexical_store,
+    get_vector_runtime,
+)
+from app.services.knowledge.storage.mysql_repository import MySQLCanonicalRepository
 
 logger = logging.getLogger(__name__)
 

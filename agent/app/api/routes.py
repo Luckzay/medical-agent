@@ -8,19 +8,19 @@ from app.core.config import Settings, get_settings
 from app.models.chat import ChatTurnCreate, ChatTurnResponse
 from app.models.run import HealthResponse, RunCreate, RunResponse
 from app.models.tooling import SkillResponse, ToolMetadataResponse
-from app.services.chat_service import (
+from app.services.agent.chat.service import (
     ChatTurnNotFoundError,
     ChatTurnService,
     DuplicateChatTurnError,
 )
-from app.services.run_service import (
+from app.services.agent.run.service import (
     DuplicateRunError,
     RunConflictError,
     RunNotFoundError,
     RunService,
-    run_service,
 )
-from app.services.tool_runtime import ToolRuntime
+from app.services.runtime import run_service
+from app.services.tools.runtime import ToolRuntime
 
 router = APIRouter()
 agent_token_header = APIKeyHeader(name="X-Agent-Token", auto_error=False)

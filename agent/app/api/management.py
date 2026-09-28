@@ -20,15 +20,15 @@ from app.models.knowledge import (
     ReprocessDocumentResponse,
     ToxicologyRetrievalStatusResponse,
 )
-from app.services.document_processing import (
+from app.services.knowledge.processing.documents import (
     ChunkingPolicy,
     ParserRegistry,
     PlainTextParser,
     StructureFirstChunker,
 )
-from app.services.ingestion import IngestionService
-from app.services.knowledge_repository import MySQLCanonicalRepository
-from app.services.runtime import build_lexical_store, build_runtime
+from app.services.knowledge.processing.ingestion import IngestionService
+from app.services.knowledge.storage.factory import build_lexical_store, build_vector_runtime
+from app.services.knowledge.storage.mysql_repository import MySQLCanonicalRepository
 
 
 class IngestionRequest(BaseModel):
@@ -63,7 +63,7 @@ def repository() -> MySQLCanonicalRepository:
 def ingestion_service() -> IngestionService:
     """构造入库服务实例。"""
     settings = get_settings()
-    runtime = build_runtime(settings)
+    runtime = build_vector_runtime(settings)
     return IngestionService(
         repository(),
         ParserRegistry([PlainTextParser()]),
@@ -288,7 +288,7 @@ def toxicology_retrieval_status(
         degradation.append("vector_disabled")
     else:
         try:
-            runtime = build_runtime(settings)
+            runtime = build_vector_runtime(settings)
             vector_health = (
                 runtime.store.health()
                 if runtime.store is not None

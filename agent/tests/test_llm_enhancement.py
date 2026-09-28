@@ -6,9 +6,9 @@ from langchain_core.runnables import RunnableConfig
 
 from app.core.config import Settings
 from app.models.run import LLMStatus
-from app.services.analysis_service import AnalysisService
-from app.services.llm_proxy import LLMChatResult, LLMProxyClient, LLMProxyError
-from app.services.workflow import LangGraphAnalysisWorkflow, WorkflowState
+from app.services.agent.analysis import AnalysisService
+from app.services.agent.workflow import LangGraphAnalysisWorkflow, WorkflowState
+from app.services.infrastructure.llm_proxy import LLMChatResult, LLMProxyClient, LLMProxyError
 
 
 @pytest.fixture
@@ -80,7 +80,7 @@ def test_llm_proxy_client_auth_failure(mock_settings: Any) -> None:
         assert "Authentication failed" in str(exc.value)
 
 
-@patch("app.services.workflow.get_settings")
+@patch("app.services.agent.workflow.get_settings")
 def test_workflow_llm_disabled(
     mock_get_settings: Any, mock_settings: Any
 ) -> None:
@@ -111,7 +111,7 @@ def test_workflow_llm_disabled(
     assert kwargs["llm_summary"] is None
 
 
-@patch("app.services.workflow.get_settings")
+@patch("app.services.agent.workflow.get_settings")
 def test_workflow_llm_success(
     mock_get_settings: Any, mock_settings: Any
 ) -> None:
@@ -145,7 +145,7 @@ def test_workflow_llm_success(
     assert kwargs["llm_summary"] == "Success Summary"
 
 
-@patch("app.services.workflow.get_settings")
+@patch("app.services.agent.workflow.get_settings")
 def test_workflow_llm_optional_fallback(
     mock_get_settings: Any, mock_settings: Any
 ) -> None:
@@ -179,7 +179,7 @@ def test_workflow_llm_optional_fallback(
     assert kwargs["llm_summary"] is None
 
 
-@patch("app.services.workflow.get_settings")
+@patch("app.services.agent.workflow.get_settings")
 def test_workflow_llm_required_failure(
     mock_get_settings: Any, mock_settings: Any
 ) -> None:

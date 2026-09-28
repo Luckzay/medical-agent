@@ -14,7 +14,10 @@ from app.models.knowledge import (
     OwnershipScope,
     SourceLocator,
 )
-from app.services.knowledge_repository import ImmutableVersionError, MySQLCanonicalRepository
+from app.services.knowledge.storage.mysql_repository import (
+    ImmutableVersionError,
+    MySQLCanonicalRepository,
+)
 
 
 def version(

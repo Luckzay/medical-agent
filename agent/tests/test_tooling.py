@@ -16,21 +16,21 @@ from app.models.tooling import (
     ToolDefinition,
     ToolExecutionContext,
 )
-from app.services.analysis_service import AnalysisService
-from app.services.builtin_tools import INTERNAL_TOOL_PERMISSIONS, build_tool_registry
-from app.services.tool_registry import (
+from app.services.agent.analysis import AnalysisService
+from app.services.agent.workflow import LangGraphAnalysisWorkflow
+from app.services.tools.builtin import INTERNAL_TOOL_PERMISSIONS, build_tool_registry
+from app.services.tools.registry import (
     DuplicateToolError,
     ToolRegistry,
     UnknownToolReferenceError,
 )
-from app.services.tool_runtime import (
+from app.services.tools.runtime import (
     ToolInputValidationError,
     ToolOutputValidationError,
     ToolPermissionError,
     ToolRuntime,
     ToolTimeoutError,
 )
-from app.services.workflow import LangGraphAnalysisWorkflow
 
 
 class ValueInput(BaseModel):

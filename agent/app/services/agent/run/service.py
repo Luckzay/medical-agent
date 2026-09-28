@@ -6,14 +6,14 @@ from threading import RLock
 
 from app.core.config import Settings, get_settings
 from app.models.run import RunCreate, RunResponse, RunStatus, WorkflowStatus
-from app.services.analysis_service import AnalysisService
-from app.services.builtin_tools import build_tool_registry
-from app.services.run_repository import (
+from app.services.agent.analysis import AnalysisService
+from app.services.agent.run.repository import (
     DuplicateRunRepositoryError,
     MySQLRunRepository,
 )
-from app.services.tool_runtime import ToolRuntime
-from app.services.workflow import AnalysisWorkflow, LangGraphAnalysisWorkflow
+from app.services.agent.workflow import AnalysisWorkflow, LangGraphAnalysisWorkflow
+from app.services.tools.builtin import build_tool_registry
+from app.services.tools.runtime import ToolRuntime
 
 
 class DuplicateRunError(Exception):
@@ -232,5 +232,3 @@ class RunService:
         with self._lock:
             self._closed = True
 
-
-run_service = RunService()

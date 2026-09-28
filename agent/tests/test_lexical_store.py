@@ -7,7 +7,7 @@ import pytest
 
 from app.models.knowledge import OwnershipScope
 from app.scripts.build_toxicology_index import build_elasticsearch_index, elasticsearch_documents
-from app.services.lexical_store import ElasticsearchLexicalStore, LexicalStoreError
+from app.services.knowledge.storage.lexical import ElasticsearchLexicalStore, LexicalStoreError
 
 
 @pytest.fixture
@@ -109,7 +109,7 @@ def test_build_cli_dry_run_defaults_to_elasticsearch(records, capsys) -> None:
     with (
         patch("app.scripts.build_toxicology_index.get_settings", return_value=settings),
         patch("app.scripts.build_toxicology_index.load_records", return_value=(records, "db")),
-        patch("app.scripts.build_toxicology_index.build_runtime") as build_runtime,
+        patch("app.scripts.build_toxicology_index.build_vector_runtime") as build_runtime,
         patch("sys.argv", ["build_toxicology_index", "--dry-run"]),
     ):
         from app.scripts.build_toxicology_index import main
@@ -123,10 +123,13 @@ def test_build_cli_dry_run_defaults_to_elasticsearch(records, capsys) -> None:
 
 def test_runtime_always_selects_elasticsearch() -> None:
     from app.core.config import Settings
-    from app.services.runtime import build_lexical_store
+    from app.services.knowledge.storage.factory import build_lexical_store
 
     settings = Settings(internal_token="x" * 16)
-    with patch("app.services.runtime.build_elasticsearch_client", return_value=MagicMock()):
+    with patch(
+        "app.services.knowledge.storage.factory.build_elasticsearch_client",
+        return_value=MagicMock(),
+    ):
         selected = build_lexical_store(settings)
     assert isinstance(selected, ElasticsearchLexicalStore)
     assert selected.backend == "elasticsearch"

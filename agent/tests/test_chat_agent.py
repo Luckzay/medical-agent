@@ -14,11 +14,11 @@ from app.core.config import Settings
 from app.main import app
 from app.models.chat import ChatTurnCreate
 from app.models.tooling import ToolDefinition
-from app.services.chat_repository import MySQLChatRepository
-from app.services.chat_service import ChatTurnService
-from app.services.llm_proxy import LLMChatResult, LLMToolCall, LLMToolCallFunction
-from app.services.tool_registry import ToolRegistry
-from app.services.tool_runtime import ToolRuntime
+from app.services.agent.chat.repository import MySQLChatRepository
+from app.services.agent.chat.service import ChatTurnService
+from app.services.infrastructure.llm_proxy import LLMChatResult, LLMToolCall, LLMToolCallFunction
+from app.services.tools.registry import ToolRegistry
+from app.services.tools.runtime import ToolRuntime
 
 
 class EchoInput(BaseModel):

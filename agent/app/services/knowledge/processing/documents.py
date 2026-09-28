@@ -13,7 +13,7 @@ from app.models.knowledge import (
     OwnershipScope,
     SourceLocator,
 )
-from app.services.knowledge_ports import DocumentParser, UnsupportedMediaTypeError
+from app.services.knowledge.core.ports import DocumentParser, UnsupportedMediaTypeError
 
 
 class ParserRegistry:

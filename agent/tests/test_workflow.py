@@ -10,10 +10,10 @@ from app.api.routes import get_run_service
 from app.core.config import Settings
 from app.main import app
 from app.models.run import MolecularDescriptors, RunCreate, RunStatus
-from app.services.analysis_service import AnalysisService
-from app.services.run_repository import MySQLRunRepository
-from app.services.run_service import RunConflictError, RunService
-from app.services.workflow import LangGraphAnalysisWorkflow
+from app.services.agent.analysis import AnalysisService
+from app.services.agent.run.repository import MySQLRunRepository
+from app.services.agent.run.service import RunConflictError, RunService
+from app.services.agent.workflow import LangGraphAnalysisWorkflow
 
 
 class UnavailableDescriptors:

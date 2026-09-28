@@ -4,15 +4,15 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from app.models.knowledge import IngestionStage, OwnershipScope
-from app.services.document_processing import (
+from app.services.knowledge.processing.documents import (
     ChunkingPolicy,
     ParserRegistry,
     PlainTextParser,
     StructureFirstChunker,
 )
-from app.services.embeddings import DeterministicTestEmbedding
-from app.services.ingestion import IngestionService
-from app.services.knowledge_repository import MySQLCanonicalRepository
+from app.services.knowledge.processing.ingestion import IngestionService
+from app.services.knowledge.storage.embedding import DeterministicTestEmbedding
+from app.services.knowledge.storage.mysql_repository import MySQLCanonicalRepository
 
 
 def service(

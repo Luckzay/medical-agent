@@ -13,7 +13,7 @@ os.environ.setdefault("AGENT_MYSQL_DATABASE", "ai_medical_db")
 
 @pytest.fixture(autouse=True)
 def clean_agent_tables():
-    from app.services.mysql import MySQLDatabase
+    from app.services.infrastructure.mysql import MySQLDatabase
 
     tables = (
         "agent_chat_events",

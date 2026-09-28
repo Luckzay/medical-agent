@@ -13,14 +13,14 @@ from langgraph.graph import END, START, StateGraph
 from app.core.config import Settings, get_settings
 from app.models.chat import ChatEvent, ChatTurnCreate, ChatTurnResponse
 from app.models.tooling import ToolExecutionContext
-from app.services.builtin_tools import INTERNAL_TOOL_PERMISSIONS
-from app.services.chat_repository import (
+from app.services.agent.chat.repository import (
     ChatTurnNotFoundError,
     DuplicateChatTurnError,
     MySQLChatRepository,
 )
-from app.services.llm_proxy import LLMProxyClient
-from app.services.tool_runtime import ToolRuntime
+from app.services.infrastructure.llm_proxy import LLMProxyClient
+from app.services.tools.builtin import INTERNAL_TOOL_PERMISSIONS
+from app.services.tools.runtime import ToolRuntime
 
 SYSTEM_PROMPT = """你是中药毒理专家。回答任何问题前必须先调用 search_toxicology_knowledge。
 你只能依据本轮工具返回的业务知识库及毒理记录作答，不得使用模型常识补充毒性、

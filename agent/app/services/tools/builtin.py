@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Protocol
 
 import httpx
 
@@ -13,12 +14,11 @@ from app.models.tooling import (
     SearchMedicalKnowledgeOutput,
     ToolDefinition,
 )
-from app.services.analysis_service import AnalysisService
-from app.services.embeddings import DeterministicTestEmbedding
-from app.services.knowledge_repository import MySQLCanonicalRepository
-from app.services.runtime import VectorRuntime, get_vector_runtime
-from app.services.tool_registry import ToolRegistry
-from app.services.toxicology_search import search_toxicology
+from app.services.knowledge.retrieval.toxicology import search_toxicology
+from app.services.knowledge.storage.embedding import DeterministicTestEmbedding
+from app.services.knowledge.storage.factory import VectorRuntime, get_vector_runtime
+from app.services.knowledge.storage.mysql_repository import MySQLCanonicalRepository
+from app.services.tools.registry import ToolRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,11 @@ INTERNAL_TOOL_PERMISSIONS = frozenset({"herbs:normalize", "knowledge:search"})
 MCP_TOOL_PERMISSIONS = INTERNAL_TOOL_PERMISSIONS
 
 
-def build_tool_registry(analysis: AnalysisService) -> ToolRegistry:
+class HerbNormalizer(Protocol):
+    def normalize(self, herbs: list[str]) -> list[str]: ...
+
+
+def build_tool_registry(analysis: HerbNormalizer) -> ToolRegistry:
     registry = ToolRegistry()
     settings = get_settings()
 

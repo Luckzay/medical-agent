@@ -1,6 +1,6 @@
 import pytest
 
-from app.services.retrieval_query import build_retrieval_query
+from app.services.knowledge.retrieval.query import build_retrieval_query
 
 
 @pytest.mark.parametrize(

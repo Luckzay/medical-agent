@@ -8,9 +8,9 @@ from app.api.routes import get_tool_runtime
 from app.core.config import Settings
 from app.main import app
 from app.models.tooling import ToolExecutionContext
-from app.services.analysis_service import AnalysisService
-from app.services.builtin_tools import INTERNAL_TOOL_PERMISSIONS, build_tool_registry
-from app.services.tool_runtime import ToolRuntime
+from app.services.agent.analysis import AnalysisService
+from app.services.tools.builtin import INTERNAL_TOOL_PERMISSIONS, build_tool_registry
+from app.services.tools.runtime import ToolRuntime
 
 TOKEN = "test-only-agent-token"
 HEADERS = {"X-Agent-Token": TOKEN}

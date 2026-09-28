@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 import pymysql  # type: ignore[import-untyped]
 
 from app.models.run import AnalysisResult, RunCreate, RunResponse, RunStatus, WorkflowMetadata
-from app.services.mysql import MySQLDatabase
+from app.services.infrastructure.mysql import MySQLDatabase
 
 
 class DuplicateRunRepositoryError(Exception):
