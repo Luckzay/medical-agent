@@ -113,6 +113,12 @@ func (s *llmConfigService) UpdateConfig(ctx context.Context, input model.LLMConf
 	} else if existing != nil {
 		input.APIKeyEncrypted = existing.APIKeyEncrypted
 	}
+	if existing != nil {
+		// Save 对已有记录执行全字段 UPDATE；CreatedAt 必须保留原值，
+		// 否则 Go 零值时间会写成 '0000-00-00 00:00:00'，在严格模式下报 1292。
+		input.ID = existing.ID
+		input.CreatedAt = existing.CreatedAt
+	}
 	if input.APIKeyEncrypted == "" {
 		return errors.New("api_key is required for new configuration")
 	}

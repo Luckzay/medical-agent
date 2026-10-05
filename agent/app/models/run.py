@@ -1,9 +1,16 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 from app.models.knowledge import RetrievalDiagnostics
+
+
+def _to_rfc3339(value: datetime) -> str:
+    """序列化为 Go time.Time 可解析的 RFC3339；naive 时间按 UTC 补齐。"""
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=UTC)
+    return value.isoformat().replace("+00:00", "Z")
 
 
 class RunStatus(StrEnum):
@@ -159,6 +166,10 @@ class RunResponse(RunCreate):
     status: RunStatus = Field(description="分析运行任务的当前状态")
     created_at: datetime = Field(description="任务创建时间")
     updated_at: datetime = Field(description="任务最后更新时间")
+
+    @field_serializer("created_at", "updated_at")
+    def _serialize_times(self, value: datetime) -> str:
+        return _to_rfc3339(value)
     analysis_result: AnalysisResult | None = Field(
         default=None, description="分析任务产出的结果数据"
     )

@@ -64,4 +64,7 @@ agent/.venv-real/
 *.log
 *.tmp
 *.temp
+tmp.json
 .cache/
+
+migrations/

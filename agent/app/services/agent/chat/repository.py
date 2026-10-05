@@ -43,9 +43,41 @@ class MySQLChatRepository:
                         now,
                     ),
                 )
-        except pymysql.err.IntegrityError as exc:
-            raise DuplicateChatTurnError(request.turn_id) from exc
+        except pymysql.err.IntegrityError:
+            # Go 后端在调用本服务前会预创建 pending 行；也可能是同一回合的重复投递。
+            # 走幂等补齐而不是直接判冲突。
+            self._adopt_existing_turn(request, now)
         return self.get(request.turn_id)
+
+    def _adopt_existing_turn(self, request: ChatTurnCreate, now: object) -> None:
+        with self.database.cursor() as cursor:
+            cursor.execute(
+                "SELECT session_id,user_id,status FROM agent_chat_turns WHERE turn_id=%s FOR UPDATE",
+                (request.turn_id,),
+            )
+            row = cursor.fetchone()
+        if row is None:
+            raise DuplicateChatTurnError(request.turn_id)
+        if str(row["session_id"]) != request.session_id or str(row["user_id"]) != request.user_id:
+            raise DuplicateChatTurnError(request.turn_id)
+        # 已结束回合的重复投递：原样返回，不重置状态
+        if row["status"] in ("completed", "failed"):
+            return
+        # pending/running：Go 预创建的行缺少 message/history，补齐后后台线程即可接管
+        with self.database.cursor() as cursor:
+            cursor.execute(
+                """UPDATE agent_chat_turns
+                   SET message=%s,history_json=%s,error_message=NULL,updated_at=%s
+                   WHERE turn_id=%s""",
+                (
+                    request.message,
+                    json.dumps([item.model_dump() for item in request.history]),
+                    now,
+                    request.turn_id,
+                ),
+            )
+        if cursor.rowcount == 0:
+            raise DuplicateChatTurnError(request.turn_id)
 
     def load_request(self, turn_id: str) -> ChatTurnCreate:
         with self.database.cursor() as cursor:
@@ -55,8 +87,9 @@ class MySQLChatRepository:
             raise ChatTurnNotFoundError(turn_id)
         return ChatTurnCreate(
             turn_id=row["turn_id"],
-            session_id=row["session_id"],
-            user_id=row["user_id"],
+            # 旧结构中这两列为 bigint，模型层统一按字符串标识处理
+            session_id=str(row["session_id"]),
+            user_id=str(row["user_id"]),
             message=row["message"],
             history=json.loads(str(row["history_json"])),
         )
@@ -179,7 +212,7 @@ class MySQLChatRepository:
             raise ChatTurnNotFoundError(turn_id)
         return ChatTurnResponse(
             turn_id=row["turn_id"],
-            session_id=row["session_id"],
+            session_id=str(row["session_id"]),
             status=row["status"],
             events=[self._event(item) for item in event_rows],
             assistant_message=row["assistant_message"],

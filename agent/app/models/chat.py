@@ -1,9 +1,16 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
+
+
+def _to_rfc3339(value: datetime) -> str:
+    """序列化为 Go time.Time 可解析的 RFC3339；MySQL 取回的 naive 时间按 UTC 补齐。"""
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=UTC)
+    return value.isoformat().replace("+00:00", "Z")
 
 ChatRole = Literal["system", "user", "assistant", "tool"]
 ChatStatus = Literal["pending", "running", "completed", "failed"]
@@ -70,6 +77,10 @@ class ChatEvent(BaseModel):
     output: Any | None = Field(default=None, description="输出结果的脱敏副本")
     created_at: datetime = Field(description="事件创建时间")
 
+    @field_serializer("created_at")
+    def _serialize_created_at(self, value: datetime) -> str:
+        return _to_rfc3339(value)
+
 
 class ChatTurnResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -82,3 +93,7 @@ class ChatTurnResponse(BaseModel):
     error_message: str | None = Field(default=None, description="执行失败时的错误信息")
     created_at: datetime = Field(description="回合创建时间")
     updated_at: datetime = Field(description="最后更新时间")
+
+    @field_serializer("created_at", "updated_at")
+    def _serialize_times(self, value: datetime) -> str:
+        return _to_rfc3339(value)

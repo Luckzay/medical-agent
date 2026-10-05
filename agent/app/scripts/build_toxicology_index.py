@@ -78,7 +78,7 @@ def load_records() -> tuple[list[dict[str, Any]], str]:
             )
             herbs = list(cursor.fetchall())
             cursor.execute(
-                "SELECT id AS compound_id, herb_id, compound_name, "
+                "SELECT id AS compound_id, herb_id, compound_type AS compound_name, "
                 "molecular_formula AS formula, cas FROM herb_toxiccompound ORDER BY herb_id,id"
             )
             compounds = list(cursor.fetchall())

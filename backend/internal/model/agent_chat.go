@@ -43,7 +43,7 @@ type AgentChatTurn struct {
 	Status             string          `gorm:"size:20;not null;index" json:"status"`
 	EventsJSON         json.RawMessage `gorm:"column:events;type:json" json:"events"`
 	AssistantMessageID *uint           `gorm:"uniqueIndex" json:"-"`
-	ErrorMessage       string          `gorm:"type:text;not null" json:"error_message,omitempty"`
+	ErrorMessage       string          `gorm:"type:text" json:"error_message,omitempty"`
 	CreatedAt          time.Time       `gorm:"not null;autoCreateTime" json:"created_at"`
 	UpdatedAt          time.Time       `gorm:"not null;autoUpdateTime" json:"updated_at"`
 }

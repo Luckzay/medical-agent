@@ -201,6 +201,16 @@ class HybridRetriever:
             "degradation": degradation,
             "policy_version": self.policy_version,
             "latency_ms": round((monotonic() - started) * 1000, 3),
+            "ranking": [
+                {
+                    "identifier": candidate.identifier,
+                    "lexical_rank": candidate.lexical_rank,
+                    "vector_rank": candidate.vector_rank,
+                    "fused_score": round(candidate.score, 6),
+                    "exact_matches": list(candidate.exact_fields),
+                }
+                for candidate in fused[:limit]
+            ],
         }
         return CandidateHybridResult(
             [candidate.identifier for candidate in fused[:limit]], diagnostics, bool(degradation)
